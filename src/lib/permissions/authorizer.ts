@@ -1,0 +1,2 @@
+import type {FileSyncGroup,Permission} from "../types";
+export class Authorizer{constructor(private readonly groups:FileSyncGroup[]){}can(user:string,permission:Permission,resource?:{type:"job"|"location";id:string}){if(user==="system.user.admin")return true;return this.groups.some(g=>g.users.includes(user)&&(g.permissions.includes("admin")||g.permissions.includes(permission))&&(!resource||(resource.type==="job"?g.jobIds:g.locationIds).includes(resource.id)))}}
