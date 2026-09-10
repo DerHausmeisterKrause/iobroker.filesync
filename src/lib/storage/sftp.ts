@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import path from "node:path";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Readable, Writable } from "node:stream";
 import type { FileMetadata, SecretRecord, SftpLocation } from "../types";
 import type { StorageProvider } from "./provider";
@@ -39,7 +39,7 @@ export class SftpStorageProvider implements StorageProvider {
  async createReadStream(p:string){await this.guard(p);return this.c.createReadStream(this.p(p))}
  async createWriteStream(p:string){this.writable();await this.guard(p,true);return this.c.createWriteStream(this.p(p))}
  async rename(a:string,b:string){this.writable();await this.guard(a);await this.guard(b,true);await this.c.rename(this.p(a),this.p(b))}
- async replace(temp:string,final:string){this.writable();const backup=`${final}.filesync-backup`,existed=await this.exists(final);if(existed)await this.rename(final,backup);try{await this.rename(temp,final);if(existed)await this.remove(backup)}catch(error){if(existed&&await this.exists(backup))await this.rename(backup,final);throw error}}
+ async replace(temp:string,final:string){this.writable();const backup=path.posix.join(path.posix.dirname(final),`.${path.posix.basename(final)}.filesync-backup-${randomUUID()}`),existed=await this.exists(final);if(existed)await this.rename(final,backup);try{await this.rename(temp,final);if(existed)await this.remove(backup)}catch(error){if(existed&&await this.exists(backup))await this.rename(backup,final);throw error}}
  async remove(p:string){this.writable();await this.guard(p);const s=await this.stat(p);if(s.type==="directory")await this.c.rmdir(this.p(p),true);else await this.c.delete(this.p(p))}
  async setMtime(p:string,m:number){this.writable();await this.guard(p);await this.c.utimes(this.p(p),m/1000,m/1000)}
 }
