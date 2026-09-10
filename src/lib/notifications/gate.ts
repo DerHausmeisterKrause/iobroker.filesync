@@ -1,0 +1,1 @@
+export class NotificationGate{private failures=new Map<string,number>();failure(job:string,cooldownMs:number,now=Date.now()){const last=this.failures.get(job);if(last===undefined||now-last>=cooldownMs){this.failures.set(job,now);return true}return false}recovery(job:string){return this.failures.delete(job)}isFailed(job:string){return this.failures.has(job)}}

@@ -1,0 +1,2 @@
+import type{DataLocation,SecretRecord}from "../types";import type{StorageProvider}from "./provider";import{LocalStorageProvider}from "./local";import{SmbStorageProvider}from "./smb";import{SftpStorageProvider}from "./sftp";
+export function providerFor(l:DataLocation,secrets:Record<string,SecretRecord>):StorageProvider{switch(l.type){case"local":return new LocalStorageProvider(l);case"smb":return new SmbStorageProvider(l,secrets[l.credentialId]??{});case"sftp":return new SftpStorageProvider(l,secrets[l.credentialId]??{})}}
