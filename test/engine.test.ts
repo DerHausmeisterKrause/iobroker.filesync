@@ -34,6 +34,11 @@ describe("SyncEngine",()=>{
   const result=await x.engine.run(job({mode:"mirror",mirrorDeleteConfirmed:true,filters:{include:["**/*.pdf"],exclude:["private.pdf"]}}),x.sourceProvider,x.targetProvider);
   expect(result.deleted).toBe(1);expect(await readFile(path.join(x.target,"a.pdf"),"utf8")).toBe("source");expect(await readFile(path.join(x.target,"wichtig.xlsx"),"utf8")).toBe("keep");expect(await readFile(path.join(x.target,"private.pdf"),"utf8")).toBe("keep");await expect(stat(path.join(x.target,"old.pdf"))).rejects.toMatchObject({code:"ENOENT"});
  });
+ it("does not mirror-delete descendants when recursion is disabled",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"a.pdf"),"source");await writeFile(path.join(x.target,"a.pdf"),"old");await writeFile(path.join(x.target,"old.pdf"),"delete");await import("node:fs/promises").then(fs=>fs.mkdir(path.join(x.target,"sub")));await writeFile(path.join(x.target,"sub","wichtig.pdf"),"keep");
+  const result=await x.engine.run(job({mode:"mirror",recursive:false,mirrorDeleteConfirmed:true,filters:{include:["**/*.pdf"],exclude:[]}}),x.sourceProvider,x.targetProvider);
+  expect(result.deleted).toBe(1);await expect(stat(path.join(x.target,"old.pdf"))).rejects.toMatchObject({code:"ENOENT"});expect(await readFile(path.join(x.target,"sub","wichtig.pdf"),"utf8")).toBe("keep");
+ });
  it("reconciles a deleted or size-mismatched target despite an unchanged snapshot",async()=>{
   const x=await setup();await writeFile(path.join(x.source,"test.pdf"),"correct");const j=job();expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);
   await rm(path.join(x.target,"test.pdf"));expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);
