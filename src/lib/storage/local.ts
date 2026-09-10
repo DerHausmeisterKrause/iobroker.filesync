@@ -4,6 +4,7 @@ import path from "node:path";
 import type { FileMetadata,LocalLocation } from "../types";
 import type { StorageProvider } from "./provider";
 import { safeLocalPath,normalizeRelative } from "../security/path";
+import { isNotFoundError } from "./errors";
 export class LocalStorageProvider implements StorageProvider {
  constructor(private readonly location:LocalLocation){}
  normalizePath(p:string):string{return normalizeRelative(p)}
@@ -13,7 +14,8 @@ export class LocalStorageProvider implements StorageProvider {
  async testConnection(writeTest=false){const started=Date.now();await access(this.location.basePath);if(writeTest&&!this.location.readOnly){const p=this.resolve(`.filesync-test-${process.pid}`);await writeFile(p,"");await rm(p)}return {latencyMs:Date.now()-started,freeBytes:await this.getFreeSpace()}}
  async list(p:string):Promise<FileMetadata[]>{const dir=await this.guarded(p);const rows=await readdir(dir,{withFileTypes:true});const result:FileMetadata[]=[];for(const row of rows){const rel=path.posix.join(this.normalizePath(p),row.name);const s=await lstat(this.resolve(rel));result.push({path:rel,name:row.name,type:s.isSymbolicLink()?"symlink":s.isDirectory()?"directory":"file",size:s.size,mtimeMs:s.mtimeMs})}return result}
  async stat(p:string):Promise<FileMetadata>{const s=await lstat(await this.guarded(p));return {path:this.normalizePath(p),name:path.basename(p),type:s.isSymbolicLink()?"symlink":s.isDirectory()?"directory":"file",size:s.size,mtimeMs:s.mtimeMs}}
- async exists(p:string){try{await this.guarded(p);return true}catch{return false}}
+ async statOrUndefined(p:string){try{return await this.stat(p)}catch(error){if(isNotFoundError(error))return undefined;throw error}}
+ async exists(p:string){return (await this.statOrUndefined(p))!==undefined}
  async mkdir(p:string){if(this.location.readOnly)throw new Error("Location is read-only");await mkdir(this.resolve(p),{recursive:true});await this.guarded(p)}
  async createReadStream(p:string){return createReadStream(await this.guarded(p))}
  async createWriteStream(p:string){if(this.location.readOnly)throw new Error("Location is read-only");return createWriteStream(await this.guarded(p,true),{flags:"wx"})}
