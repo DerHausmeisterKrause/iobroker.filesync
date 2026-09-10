@@ -1,3 +1,25 @@
-import {mkdir,readFile,rename,writeFile,copyFile} from "node:fs/promises";import path from "node:path";import type {FileMetadata} from "../types";
-export interface Snapshot{version:1;files:Record<string,FileMetadata&{syncedAt:number;hash?:string}>;pending?:Record<string,{size:number;mtimeMs:number;observedAt:number}>}
-export class PersistentStore{constructor(private readonly root:string){}private file(id:string){if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error("Invalid job id");return path.join(this.root,`${id}.json`)}async load(id:string):Promise<Snapshot>{await mkdir(this.root,{recursive:true});try{const parsed=JSON.parse(await readFile(this.file(id),"utf8")) as Snapshot;if(parsed.version!==1||!parsed.files||typeof parsed.files!=="object")throw new Error("Unsupported snapshot schema");return parsed}catch(e){if((e as NodeJS.ErrnoException).code==="ENOENT")return{version:1,files:{},pending:{}};const damaged=`${this.file(id)}.corrupt-${Date.now()}`;await rename(this.file(id),damaged).catch(()=>undefined);return{version:1,files:{},pending:{}}}}async save(id:string,data:Snapshot){await mkdir(this.root,{recursive:true});const f=this.file(id),tmp=`${f}.${process.pid}.tmp`;await writeFile(tmp,JSON.stringify(data),{mode:0o600});await copyFile(f,`${f}.bak`).catch(()=>undefined);await rename(tmp,f)}}
+import {mkdir,readFile,rename,writeFile,copyFile} from "node:fs/promises";
+import path from "node:path";
+import type {FileMetadata} from "../types";
+
+export interface SnapshotEntry extends FileMetadata {syncedAt:number;hash?:string;targetPath?:string}
+export interface Snapshot {version:1;files:Record<string,SnapshotEntry>;pending?:Record<string,{size:number;mtimeMs:number;observedAt:number}>}
+
+export class PersistentStore {
+ constructor(private readonly root:string){}
+ private file(id:string){if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error("Invalid job id");return path.join(this.root,`${id}.json`)}
+ private async parse(file:string){
+  const parsed=JSON.parse(await readFile(file,"utf8")) as Snapshot;
+  if(parsed.version!==1||!parsed.files||typeof parsed.files!=="object")throw new Error("Unsupported snapshot schema");
+  return parsed;
+ }
+ async load(id:string):Promise<Snapshot>{
+  await mkdir(this.root,{recursive:true});const file=this.file(id);
+  try{return await this.parse(file)}catch(e){
+   if((e as NodeJS.ErrnoException).code==="ENOENT")return{version:1,files:{},pending:{}};
+   const damaged=`${file}.corrupt-${Date.now()}`;await rename(file,damaged).catch(()=>undefined);
+   try{const backup=await this.parse(`${file}.bak`);await writeFile(file,JSON.stringify(backup),{mode:0o600});return backup}catch{return{version:1,files:{},pending:{}}}
+  }
+ }
+ async save(id:string,data:Snapshot){await mkdir(this.root,{recursive:true});const f=this.file(id),tmp=`${f}.${process.pid}.tmp`;await writeFile(tmp,JSON.stringify(data),{mode:0o600});await copyFile(f,`${f}.bak`).catch(()=>undefined);await rename(tmp,f)}
+}

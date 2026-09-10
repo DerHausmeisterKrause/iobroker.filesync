@@ -8,6 +8,7 @@ export function normalizeRelative(input:string):string {
 }
 export function safeLocalPath(base:string, relative:string):string {
  const root=path.resolve(base); const target=path.resolve(root,normalizeRelative(relative));
- if (target!==root && !target.startsWith(`${root}${path.sep}`)) throw new Error("Path escapes location root");
+ const rel=path.relative(root,target);
+ if (rel!=="" && (rel===".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel))) throw new Error("Path escapes location root");
  return target;
 }
