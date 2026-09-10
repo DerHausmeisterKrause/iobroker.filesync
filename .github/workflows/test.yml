@@ -9,6 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: "${{ matrix.node }}"}
+      # Switch to npm ci as soon as package-lock.json can be generated.
       - run: npm install
       - run: npm run lint
       - run: npm run typecheck

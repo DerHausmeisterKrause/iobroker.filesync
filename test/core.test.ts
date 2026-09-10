@@ -4,10 +4,19 @@ describe("reliability",()=>{it("retries with bounded attempts",async()=>{let cal
 describe("configuration",()=>{it("migrates safe defaults",()=>{const c=migrateConfig({});expect(c.configVersion).toBe(1);expect(c.maxConcurrentTransfers).toBe(2)});it("enforces resource permissions",()=>{const a=new Authorizer([{id:"g",name:"g",users:["system.user.u"],permissions:["jobs.view"],locationIds:[],jobIds:["j"]}]);expect(a.can("system.user.u","jobs.view",{type:"job",id:"j"})).toBe(true);expect(a.can("system.user.u","jobs.view",{type:"job",id:"x"})).toBe(false)})});
 describe("change detection",()=>{const f={path:"folder/ä.pdf",name:"ä.pdf",type:"file" as const,size:1,mtimeMs:10};it("compares size and mtime",()=>{expect(changed(f,{...f})).toBe(false);expect(changed(f,{...f,size:2})).toBe(true)});it("applies glob and ignores transfer files",()=>{expect(matches(f,{include:["**/*.pdf"],exclude:["*.tmp"]})).toBe(true);expect(matches({...f,path:".x.filesync-abc.tmp"},{include:[],exclude:[]})).toBe(false)})});
 
-describe("trusted authentication envelope",()=>{
- const groups=[{id:"g",name:"operators",users:["system.user.operator"],permissions:["jobs.run","locations.view"] as const,locationIds:["location"],jobIds:["job"]}];
- const authorizer=new Authorizer(groups.map(g=>({...g,permissions:[...g.permissions]})));
- it("ignores a forged user in the payload",async()=>{const {authorizeEnvelope}=await import("../src/lib/permissions/principal");expect(()=>authorizeEnvelope({from:"system.adapter.admin.0"},authorizer,"jobs.run",{type:"job",id:"job"})).toThrow("Authenticated ioBroker user is missing")});
- it("denies missing job and location grants",async()=>{const {authorizeEnvelope}=await import("../src/lib/permissions/principal");expect(()=>authorizeEnvelope({from:"system.adapter.admin.0",user:"system.user.operator"},authorizer,"jobs.run",{type:"job",id:"other"})).toThrow("Forbidden");expect(()=>authorizeEnvelope({from:"system.adapter.admin.0",user:"system.user.operator"},authorizer,"locations.view",{type:"location",id:"other"})).toThrow("Forbidden")});
- it("supports groups and the real administrator",async()=>{const {authorizeEnvelope}=await import("../src/lib/permissions/principal");expect(authorizeEnvelope({from:"system.adapter.admin.0",user:"system.user.operator"},authorizer,"jobs.run",{type:"job",id:"job"})).toBe("system.user.operator");expect(authorizeEnvelope({from:"system.adapter.admin.0",user:"system.user.admin"},authorizer,"credentials.edit")).toBe("system.user.admin")});
+
+describe("Admin transport boundary",()=>{
+ it("rejects payloads and non-Admin senders",async()=>{const {assertAdminTransport}=await import("../src/lib/permissions/principal");expect(()=>assertAdminTransport({from:"system.adapter.javascript.0"})).toThrow();expect(()=>assertAdminTransport({from:"system.user.admin"})).toThrow()});
+ it("accepts controller messages from an Admin instance",async()=>{const {assertAdminTransport}=await import("../src/lib/permissions/principal");expect(()=>assertAdminTransport({from:"system.adapter.admin.0"})).not.toThrow()});
+});
+
+describe("credential ownership",()=>{
+ it("ignores a client credential id for new and existing locations",async()=>{const {secureLocationCredentialId}=await import("../src/lib/config");const raw={type:"smb",credentialId:"00000000-0000-4000-8000-000000000001"};const created=secureLocationCredentialId(raw) as typeof raw;expect(created.credentialId).not.toBe(raw.credentialId);const existing={...raw,id:"00000000-0000-4000-8000-000000000002",name:"x",enabled:true,readOnly:false,timeoutMs:1000,host:"h",port:445,share:"s",username:"u",basePath:""} as const;const updated=secureLocationCredentialId({...raw,credentialId:"00000000-0000-4000-8000-000000000003"},existing) as typeof raw;expect(updated.credentialId).toBe(existing.credentialId)});
+});
+
+describe("reconciliation",()=>{
+ const file={path:"a.pdf",name:"a.pdf",type:"file" as const,size:10,mtimeMs:100};
+ it("repairs missing and size-mismatched targets",async()=>{const {targetNeedsRepair}=await import("../src/lib/sync/reconciliation");expect(targetNeedsRepair(file,undefined)).toBe(true);expect(targetNeedsRepair(file,{...file,size:9})).toBe(true);expect(targetNeedsRepair(file,{...file})).toBe(false)});
+ it("requires two unchanged observations across the full window",async()=>{const {stableSince}=await import("../src/lib/sync/reconciliation");expect(stableSince(file,undefined,1000,2000)).toBe(false);expect(stableSince(file,{size:11,mtimeMs:100,observedAt:0},1000,2000)).toBe(false);expect(stableSince(file,{size:10,mtimeMs:99,observedAt:0},1000,2000)).toBe(false);expect(stableSince(file,{size:10,mtimeMs:100,observedAt:1500},1000,2000)).toBe(false);expect(stableSince(file,{size:10,mtimeMs:100,observedAt:500},1000,2000)).toBe(true)});
+ it("keeps out-of-scope mirror targets",()=>{expect(matches({...file,path:"wichtig.xlsx"},{include:["**/*.pdf"],exclude:[]})).toBe(false);expect(matches({...file,path:"private.pdf"},{include:["**/*.pdf"],exclude:["private.pdf"]})).toBe(false)});
 });

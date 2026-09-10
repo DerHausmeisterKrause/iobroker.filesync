@@ -101,3 +101,11 @@ Never paste debug output containing third-party library configuration without re
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+### Administrative API authentication boundary
+
+Admin/socket `sendTo` authorizes the connected socket but does not propagate that socket user's ID to the destination adapter. FileSync therefore does **not** accept a user name in an RPC payload and does not pretend that per-user FileSync roles can be enforced for RPC calls. Administrative RPC is accepted only when js-controller reports an Admin adapter instance as the sender; Admin's authenticated socket ACL is the authorization boundary. Fine-grained FileSync groups remain configuration data but are not advertised as an effective security boundary until ioBroker provides a trusted principal to the target adapter. See the ioBroker socket-classes `sendTo` handler and js-controller `ioBroker.Message` definition for the relevant transport behavior.
+
+### SMB implementation decision
+
+`@marsaud/smb2` 0.18 is retained for this development branch because its callback-based stream API can be adapted without buffering whole files and it requires no system mounts. The provider now wraps both stream callbacks in Promises instead of declaring nonexistent synchronous signatures. `smb3-client` was not selected without a successful Samba interoperability run because it is still alpha. This decision must be revisited after the real Samba CI suite is available; SMB is not release-qualified yet.

@@ -1,31 +1,13 @@
-import type { Permission } from "../types";
-import { Authorizer } from "./authorizer";
-
 /**
- * Authentication metadata is supplied by js-controller on the message envelope.
- * Values inside `message` are deliberately never considered an identity.
+ * sendTo does not carry the authenticated socket user to the destination adapter.
+ * Therefore this adapter deliberately does not invent a per-user identity. Its
+ * administrative RPC surface accepts only controller-generated messages from an
+ * Admin adapter instance; Admin's socket ACL check is the authorization boundary.
  */
-export interface TrustedMessageEnvelope {
-    from: string;
-    user?: string;
-}
+export interface ControllerMessageEnvelope { from: string }
 
-export function authenticatedUser(envelope: TrustedMessageEnvelope): string {
-    if (!envelope.user?.startsWith("system.user.")) {
-        throw new Error("Authenticated ioBroker user is missing");
+export function assertAdminTransport(envelope: ControllerMessageEnvelope): void {
+    if (!/^system\.adapter\.admin\.\d+$/.test(envelope.from)) {
+        throw new Error("Administrative API requires an authenticated ioBroker Admin transport");
     }
-    return envelope.user;
-}
-
-export function authorizeEnvelope(
-    envelope: TrustedMessageEnvelope,
-    authorizer: Authorizer,
-    permission: Permission,
-    resource?: { type: "job" | "location"; id: string },
-): string {
-    const user = authenticatedUser(envelope);
-    if (!authorizer.can(user, permission, resource)) {
-        throw new Error("Forbidden");
-    }
-    return user;
 }

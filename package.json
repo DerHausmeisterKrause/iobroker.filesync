@@ -5,8 +5,16 @@
   "author": "DerHausmeisterKrause",
   "license": "MIT",
   "main": "build/main.js",
-  "files": ["admin", "build", "io-package.json", "LICENSE", "README.md"],
-  "engines": { "node": ">=20" },
+  "files": [
+    "admin",
+    "build",
+    "io-package.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "npm run clean && tsc -p tsconfig.json",
     "clean": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\"",
@@ -18,8 +26,8 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@iobroker/adapter-core": "^3.3.2",
-    "@marsaud/smb2": "^0.3.0",
+    "@iobroker/adapter-core": "^3.4.1",
+    "@marsaud/smb2": "^0.18.0",
     "chokidar": "^4.0.3",
     "minimatch": "^10.0.1",
     "p-limit": "^6.2.0",
