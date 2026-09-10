@@ -21,9 +21,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src test --ext .ts",
     "test": "vitest run --coverage",
-    "test:package": "iobroker-test-package --skip-install",
+    "test:package": "mocha \"test/package/**/*.test.js\"",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "test:integration": "mocha \"test/integration/**/*.test.js\" --timeout 300000"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.1",
@@ -43,5 +44,13 @@
     "eslint": "^8.57.1",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DerHausmeisterKrause/iobroker.filesync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DerHausmeisterKrause/iobroker.filesync/issues"
+  },
+  "homepage": "https://github.com/DerHausmeisterKrause/iobroker.filesync#readme"
 }

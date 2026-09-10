@@ -46,7 +46,13 @@
       {
         "admin": ">=7.9.0"
       }
-    ]
+    ],
+    "news": {
+      "0.1.0": {
+        "en": "Initial release",
+        "de": "Erste Veröffentlichung"
+      }
+    }
   },
   "native": {
     "configVersion": 1,
