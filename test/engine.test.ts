@@ -49,12 +49,12 @@ describe("SyncEngine",()=>{
  });
  it("never writes or deletes for a configured mirror dry-run",async()=>{
   const x=await setup();await writeFile(path.join(x.source,"new.txt"),"new");await writeFile(path.join(x.target,"orphan.txt"),"keep");
-  const result=await x.engine.run(job({mode:"mirror",mirrorDeleteConfirmed:true,dryRun:true}),x.sourceProvider,x.targetProvider);
+  const result=await x.engine.run(job({mode:"mirror",mirrorDeleteConfirmed:true,dryRun:true}),x.sourceProvider,x.targetProvider,false);
   expect(result.dryRun).toBe(true);expect(result.deleted).toBe(1);expect(await readFile(path.join(x.target,"orphan.txt"),"utf8")).toBe("keep");await expect(stat(path.join(x.target,"new.txt"))).rejects.toMatchObject({code:"ENOENT"});
  });
  it("never removes the source for a configured move dry-run",async()=>{
   const x=await setup();await writeFile(path.join(x.source,"move.txt"),"keep");
-  await x.engine.run(job({mode:"move",dryRun:true}),x.sourceProvider,x.targetProvider);
+  await x.engine.run(job({mode:"move",dryRun:true}),x.sourceProvider,x.targetProvider,false);
   expect(await readFile(path.join(x.source,"move.txt"),"utf8")).toBe("keep");await expect(stat(path.join(x.target,"move.txt"))).rejects.toMatchObject({code:"ENOENT"});
  });
  it("remembers the actual version target and creates no duplicate until source changes",async()=>{
@@ -63,6 +63,10 @@ describe("SyncEngine",()=>{
   now=200;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(0);await expect(stat(path.join(x.target,"file.pdf.200"))).rejects.toMatchObject({code:"ENOENT"});
   await writeFile(path.join(x.source,"file.pdf"),"changed");now=300;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"file.pdf.300"),"utf8")).toBe("changed");
  });
+ it("never overwrites canonical when a recorded version disappears",async()=>{
+  let now=100;const x=await setup(()=>now);await writeFile(path.join(x.source,"file.pdf"),"NEW");await writeFile(path.join(x.target,"file.pdf"),"ORIGINAL");const j=job({conflict:"version"});await x.engine.run(j,x.sourceProvider,x.targetProvider);await rm(path.join(x.target,"file.pdf.100"));now=200;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"file.pdf"),"utf8")).toBe("ORIGINAL");expect(await readFile(path.join(x.target,"file.pdf.200"),"utf8")).toBe("NEW")
+ });
+ it("bounds inline result details",async()=>{const x=await setup();for(let i=0;i<501;i++)await writeFile(path.join(x.source,`f${i}.txt`),"x");const result=await x.engine.run(job({dryRun:true}),x.sourceProvider,x.targetProvider);expect(result.totalActions).toBe(501);expect(result.items).toHaveLength(500);expect(result.resultTruncated).toBe(true)});
  it("checkpoints completed files when a later transfer fails",async()=>{
   const x=await setup();for(let i=1;i<=11;i++)await writeFile(path.join(x.source,`${String(i).padStart(2,"0")}.txt`),String(i));
   let writes=0;const target=Object.create(x.targetProvider) as LocalStorageProvider;target.createWriteStream=async p=>{if(++writes===11)throw new Error("intentional transfer failure");return x.targetProvider.createWriteStream(p)};

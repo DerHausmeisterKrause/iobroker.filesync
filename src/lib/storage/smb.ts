@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import type {Readable,Writable} from "node:stream";
 import type {FileMetadata,SmbLocation,SecretRecord} from "../types";
 import type {StorageProvider} from "./provider";
@@ -54,6 +55,6 @@ export class SmbStorageProvider implements StorageProvider {
  async createReadStream(p:string):Promise<Readable>{return await this.c().createReadStream(this.p(p))}
  async createWriteStream(p:string):Promise<Writable>{if(this.l.readOnly)throw new Error("Location is read-only");return await this.c().createWriteStream(this.p(p))}
  async rename(a:string,b:string){if(this.l.readOnly)throw new Error("Location is read-only");await this.c().rename(this.p(a),this.p(b))}
- async replace(temp:string,final:string){if(this.l.readOnly)throw new Error("Location is read-only");const backup=`${final}.filesync-backup`;const existed=await this.exists(final);if(existed)await this.rename(final,backup);try{await this.rename(temp,final);if(existed)await this.remove(backup)}catch(error){if(existed&&await this.exists(backup))await this.rename(backup,final);throw error}}
+ async replace(temp:string,final:string){if(this.l.readOnly)throw new Error("Location is read-only");const backup=path.posix.join(path.posix.dirname(final),`.${path.posix.basename(final)}.filesync-backup-${randomUUID()}`);const existed=await this.exists(final);if(existed)await this.rename(final,backup);try{await this.rename(temp,final);if(existed)await this.remove(backup)}catch(error){if(existed&&await this.exists(backup))await this.rename(backup,final);throw error}}
  async remove(p:string){if(this.l.readOnly)throw new Error("Location is read-only");const s=await this.stat(p);if(s.type==="directory")await this.c().rmdir(this.p(p));else await this.c().unlink(this.p(p))}
 }
