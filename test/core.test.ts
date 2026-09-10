@@ -31,3 +31,8 @@ describe("job safety validation",()=>{
 describe("global transfer limiter",()=>{
  it("limits transfers across jobs and reports the actual waiting queue",async()=>{const {TransferLimiter}=await import("../src/lib/jobs/transfer-limit");const limiter=new TransferLimiter(2);let active=0,maximum=0;let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve});const operations=Array.from({length:4},()=>limiter.run(async()=>{active++;maximum=Math.max(maximum,active);await gate;active--}));await new Promise(resolve=>setTimeout(resolve,5));expect(limiter.activeCount).toBe(2);expect(limiter.pendingCount).toBe(2);release();await Promise.all(operations);expect(maximum).toBe(2);expect(limiter.pendingCount).toBe(0)});
 });
+
+describe("secret runtime validation",()=>{
+ it("rejects non-string and unbounded RPC secrets",async()=>{const {validateSecret}=await import("../src/lib/config");expect(()=>validateSecret({password:123})).toThrow();expect(()=>validateSecret({privateKey:"x".repeat(131073)})).toThrow();expect(validateSecret({password:"safe",passphrase:"phrase"})).toEqual({password:"safe",passphrase:"phrase"})});
+ it("redacts a known secret without requiring a key prefix",async()=>{const {redact}=await import("../src/lib/security/redact");expect(redact(new Error("provider rejected FILESYNC_PLAINTEXT_TEST_92837"),["FILESYNC_PLAINTEXT_TEST_92837"])).toBe("provider rejected [REDACTED]")});
+});

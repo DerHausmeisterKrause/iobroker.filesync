@@ -72,4 +72,16 @@ describe("SyncEngine",()=>{
   let writes=0;const target=Object.create(x.targetProvider) as LocalStorageProvider;target.createWriteStream=async p=>{if(++writes===11)throw new Error("intentional transfer failure");return x.targetProvider.createWriteStream(p)};
   const engine=new SyncEngine(x.store,Date.now,25);await expect(engine.run(job(),x.sourceProvider,target)).rejects.toThrow("intentional transfer failure");expect(Object.keys((await x.store.load(jobId)).files)).toHaveLength(10);
  });
+ it("evaluates conflict=never atomically for concurrent runs",async()=>{
+  const x=await setup(),secondSource=await root();await writeFile(path.join(x.source,"test.pdf"),"A");await writeFile(path.join(secondSource,"test.pdf"),"B");
+  const secondProvider=new LocalStorageProvider(location("00000000-0000-4000-8000-000000000009",secondSource));
+  const results=await Promise.all([x.engine.run(job({conflict:"never"}),x.sourceProvider,x.targetProvider),x.engine.run(job({id:"00000000-0000-4000-8000-000000000008",sourceLocationId:"00000000-0000-4000-8000-000000000009",conflict:"never"}),secondProvider,x.targetProvider)]);
+  expect(results.reduce((sum,result)=>sum+result.copied,0)).toBe(1);expect(["A","B"]).toContain(await readFile(path.join(x.target,"test.pdf"),"utf8"));
+ });
+ it("reports conflict=error for the losing concurrent run",async()=>{
+  const x=await setup(),secondSource=await root();await writeFile(path.join(x.source,"test.pdf"),"A");await writeFile(path.join(secondSource,"test.pdf"),"B");
+  const secondProvider=new LocalStorageProvider(location("00000000-0000-4000-8000-000000000009",secondSource));
+  const results=await Promise.allSettled([x.engine.run(job({conflict:"error"}),x.sourceProvider,x.targetProvider),x.engine.run(job({id:"00000000-0000-4000-8000-000000000008",sourceLocationId:"00000000-0000-4000-8000-000000000009",conflict:"error"}),secondProvider,x.targetProvider)]);
+  expect(results.filter(result=>result.status==="fulfilled")).toHaveLength(1);expect(results.filter(result=>result.status==="rejected")).toHaveLength(1);
+ });
 });
