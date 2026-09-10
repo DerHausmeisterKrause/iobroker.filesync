@@ -1,0 +1,39 @@
+{
+  "name": "iobroker.filesync",
+  "version": "0.1.0",
+  "description": "Secure file synchronization between local, SMB2/3 and SFTP locations",
+  "author": "ioBroker Community",
+  "license": "MIT",
+  "main": "build/main.js",
+  "files": ["admin", "build", "io-package.json", "LICENSE", "README.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "clean": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src test --ext .ts",
+    "test": "vitest run --coverage",
+    "test:package": "iobroker-test-package --skip-install",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@iobroker/adapter-core": "^3.3.2",
+    "@marsaud/smb2": "^0.3.0",
+    "chokidar": "^4.0.3",
+    "minimatch": "^10.0.1",
+    "p-limit": "^6.2.0",
+    "ssh2-sftp-client": "^12.0.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@iobroker/testing": "^5.1.1",
+    "@types/node": "^22.13.10",
+    "@typescript-eslint/eslint-plugin": "^8.26.0",
+    "@typescript-eslint/parser": "^8.26.0",
+    "@vitest/coverage-v8": "^3.0.8",
+    "eslint": "^8.57.1",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
