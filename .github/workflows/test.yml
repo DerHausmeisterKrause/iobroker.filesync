@@ -26,12 +26,12 @@ jobs:
       - if: matrix.check == 'package'
         run: npm run test:package && npm pack --dry-run
   iobroker-integration:
-    name: ioBroker Integration (Node 24)
+    name: ioBroker Integration (Node 22)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: "24"}
+        with: {node-version: "22"}
       - run: npm ci
       - run: npm run build
       - run: npm run test:integration

@@ -24,9 +24,38 @@ npm ci
 npm run check
 ```
 
+## First beta test (Node.js 22)
+
+This milestone is intended for a controlled **Local → Local** test through the Admin GUI. On the ioBroker host, prepare disposable directories:
+
+```sh
+mkdir -p /tmp/filesync-source
+mkdir -p /tmp/filesync-target
+echo "Hello FileSync" > /tmp/filesync-source/test.txt
+```
+
+1. In ioBroker Admin open **Adapters → Install from custom URL → GitHub**.
+2. Enter `https://github.com/DerHausmeisterKrause/iobroker.filesync` and select the `main` branch. Create and start a FileSync instance.
+3. Open the instance configuration and select **Locations**. Add `Source` as a local location with `/tmp/filesync-source`; save it, test the connection, and use **Browse**.
+4. Add `Target` as a local location with `/tmp/filesync-target`; save and test it as well.
+5. Select **Jobs**, add a manual, incremental job, choose `Source` and `Target`, leave both subfolders empty, and keep the default **Dry Run** enabled.
+6. Save it and click **Preview**. Wait for `success`; the summary must show one copy while `/tmp/filesync-target/test.txt` must not exist.
+7. Edit the job, disable **Dry Run**, save, and click **Start**. Wait for `success` and verify:
+
+   ```sh
+   cat /tmp/filesync-target/test.txt
+   ```
+
+   The result must be `Hello FileSync`.
+8. Change the source and start the job again to test an update. A third unchanged run should report the file as skipped.
+
+Installation from a Git repository executes the package `prepack` build. If installation fails, capture the ioBroker host's Node.js version (`node --version`, expected Node 22), npm installation output, adapter log, and js-controller version.
+
+> **Destructive-mode warning:** Use Mirror and Move only with disposable test data. Always inspect a preview first, and keep independent backups. Mirror can delete target files; Move can remove source files.
+
 ## First configuration
 
-Create an instance, open its configuration and define data locations before jobs. IDs are UUIDs and remain stable when a display name changes. The backend rejects deletion of a referenced location. New jobs should use incremental mode, recursion, a 10-second stability window, two retries, no hashing and no deletes.
+Create an instance, open its configuration and define data locations before jobs. IDs are UUIDs and remain stable when a display name changes. The backend rejects deletion of a referenced location. The GUI creates new jobs in dry-run incremental mode with recursion, a 5-second stability window, two retries, no hashing and no deletes.
 
 ### Local
 

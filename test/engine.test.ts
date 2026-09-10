@@ -18,6 +18,17 @@ async function setup(now:()=>number=Date.now){const source=await root(),target=a
 afterEach(async()=>{await Promise.all(roots.splice(0).map(value=>rm(value,{recursive:true,force:true})))})
 
 describe("SyncEngine",()=>{
+ it("copies, updates and then skips an unchanged local file",async()=>{
+  const x=await setup(),file=path.join(x.source,"hello.txt");await writeFile(file,"Hello FileSync");const j=job({preserveTimestamps:true});
+  expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"hello.txt"),"utf8")).toBe("Hello FileSync");
+  await writeFile(file,"Hello FileSync updated");expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"hello.txt"),"utf8")).toBe("Hello FileSync updated");
+  const unchanged=await x.engine.run(j,x.sourceProvider,x.targetProvider);expect(unchanged.copied).toBe(0);expect(unchanged.skipped).toBe(1);
+ });
+ it("previews a local copy without writing and performs it when dry-run is disabled",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"preview.txt"),"preview");
+  const preview=await x.engine.run(job({dryRun:true}),x.sourceProvider,x.targetProvider);expect(preview.copied).toBe(1);await expect(stat(path.join(x.target,"preview.txt"))).rejects.toMatchObject({code:"ENOENT"});
+  const actual=await x.engine.run(job({dryRun:false}),x.sourceProvider,x.targetProvider);expect(actual.copied).toBe(1);expect(await readFile(path.join(x.target,"preview.txt"),"utf8")).toBe("preview");
+ });
  it("persists an unchanged pending observation until the stability window expires",async()=>{
   let now=0;const x=await setup(()=>now);await writeFile(path.join(x.source,"file.pdf"),"stable");await utimes(path.join(x.source,"file.pdf"),1,1);const j=job({stabilitySeconds:10});
   expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(0);expect((await x.store.load(jobId)).pending?.["file.pdf"].observedAt).toBe(0);
