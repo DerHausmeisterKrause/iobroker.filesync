@@ -2,10 +2,10 @@
   "common": {
     "name": "filesync", "version": "0.1.0", "titleLang": {"en":"FileSync","de":"FileSync"},
     "desc": {"en":"Secure synchronization between local, SMB2/3 and SFTP storage","de":"Sichere Synchronisation zwischen lokalen, SMB2/3- und SFTP-Speichern"},
-    "authors": ["ioBroker Community"], "license": "MIT", "platform": "Javascript/Node.js", "mode": "daemon", "type": "storage",
+    "authors": ["DerHausmeisterKrause"], "license": "MIT", "platform": "Javascript/Node.js", "mode": "daemon", "type": "storage",
     "compact": true, "connectionType": "local", "dataSource": "push", "icon": "filesync.svg", "adminUI": {"config":"materialize"},
-    "enabled": true, "extIcon": "https://raw.githubusercontent.com/iobroker-community-adapters/ioBroker.filesync/main/admin/filesync.svg",
-    "keywords": ["files","sync","smb","sftp"], "readme": "https://github.com/iobroker-community-adapters/ioBroker.filesync/blob/main/README.md",
+    "enabled": true, "extIcon": "https://raw.githubusercontent.com/DerHausmeisterKrause/iobroker.filesync/main/admin/filesync.svg",
+    "keywords": ["files","sync","smb","sftp"], "readme": "https://github.com/DerHausmeisterKrause/iobroker.filesync/blob/main/README.md",
     "loglevel": "info", "messagebox": true, "supportCustoms": false, "tier": 3,
     "dependencies": [{"js-controller": ">=6.0.11"}], "globalDependencies": [{"admin": ">=7.0.0"}]
   },
