@@ -12,8 +12,8 @@ FileSync is an ioBroker adapter for streaming files between **local directories,
 - Streamed temporary-file transfer, size verification, optional SHA-256 verification, and final rename.
 - Interval/change reconciliation (minimum 30 seconds), manual message/state trigger, per-job coalescing lock and bounded retry/backoff.
 - Atomic, versioned per-job indexes with backup and automatic quarantine of corrupt indexes.
-- Server-side validation, role/resource authorization, confined paths, local symlink escape protection, limited folder results and secret redaction.
-- Responsive bilingual (English/German) Admin page and operational ioBroker states.
+- Server-side validation, confined paths, local symlink escape protection, limited folder results and secret redaction.
+- Basic bilingual materialize configuration page and operational ioBroker states. A modern React administration UI is still planned.
 
 ## Installation
 
@@ -42,7 +42,7 @@ Set host, port (22), user, base path and either password or private-key authenti
 
 ## Credentials
 
-The adapter stores the complete credential vault only in the ioBroker instance object's `credentialVault`, declared as both `encryptedNative` and `protectedNative`. Passwords, keys and passphrases are never states or API response fields. Responses expose only `hasPassword`, `hasPrivateKey` and `hasPassphrase`. An empty submitted field preserves its value; explicit deletion removes the credential. Back up the ioBroker object database through normal controller tooling—do not copy decrypted secrets into support bundles.
+The adapter currently stores the complete credential vault only in the ioBroker instance object's `credentialVault`, declared as both `encryptedNative` and `protectedNative`. Migration to the js-controller credential store remains release work; the current vault must not be described as equivalent to that store. Passwords, keys and passphrases are never states or API response fields. Responses expose only `hasPassword`, `hasPrivateKey` and `hasPassphrase`. An empty submitted field preserves its value; explicit deletion removes the credential. Back up the ioBroker object database through normal controller tooling—do not copy decrypted secrets into support bundles.
 
 ## Jobs, triggers and detection
 
@@ -54,9 +54,9 @@ Example filters: include `**/*.pdf`, `**/*.xml`; exclude `**/*.tmp`, `**/~*`, `*
 
 Mirror deletion runs **only** if mode is `mirror` and `mirrorDeleteConfirmed` is true. Use dry-run first. Dry-run performs no mkdir, writes, renames, moves or deletes and caps UI-oriented result lists in API consumers.
 
-## Users and groups
+## Administrative access
 
-Groups reference existing `system.user.*` identities—FileSync has no second password database. Permissions cover administration, locations, credentials, jobs, starts/pauses, logs and notifications, with job/location allowlists. Checks occur in the backend; UI visibility is not a security boundary. Instance Admin configuration itself remains protected by ioBroker Admin authentication and ACLs.
+FileSync groups are planned configuration only and are **not a security feature**. The adapter cannot recover a trustworthy user ID from an adapter `sendTo` message, so it never accepts one from browser payloads. Access is limited by Admin/socket's `other.sendto` ACL: this means users allowed to call `sendTo` through the ioBroker Admin socket, not necessarily members of `system.group.administrator`. Do not grant that ACL to users who must not invoke destructive FileSync operations.
 
 ## E-mail notifications
 

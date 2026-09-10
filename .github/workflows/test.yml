@@ -2,8 +2,13 @@ name: Test and Release
 on: [push, pull_request]
 permissions: {contents: read}
 jobs:
-  test:
-    strategy: {matrix: {node: [20, 22, 24]}}
+  checks:
+    name: ${{ matrix.check }} (Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+        check: [lint, typecheck, unit, build, package]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -11,9 +16,13 @@ jobs:
         with: {node-version: "${{ matrix.node }}"}
       # Switch to npm ci as soon as package-lock.json can be generated.
       - run: npm install
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npm run test:package
-      - run: npm pack --dry-run
+      - if: matrix.check == 'lint'
+        run: npm run lint
+      - if: matrix.check == 'typecheck'
+        run: npm run typecheck
+      - if: matrix.check == 'unit'
+        run: npm test
+      - if: matrix.check == 'build'
+        run: npm run build
+      - if: matrix.check == 'package'
+        run: npm run test:package && npm pack --dry-run
