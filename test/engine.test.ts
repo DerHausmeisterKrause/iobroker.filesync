@@ -47,4 +47,25 @@ describe("SyncEngine",()=>{
  it("uses hashes to repair equal-size target corruption",async()=>{
   const x=await setup();await writeFile(path.join(x.source,"test.pdf"),"right!");const j=job({hashCheck:true});await x.engine.run(j,x.sourceProvider,x.targetProvider);await writeFile(path.join(x.target,"test.pdf"),"wrong!");expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"test.pdf"),"utf8")).toBe("right!");
  });
+ it("never writes or deletes for a configured mirror dry-run",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"new.txt"),"new");await writeFile(path.join(x.target,"orphan.txt"),"keep");
+  const result=await x.engine.run(job({mode:"mirror",mirrorDeleteConfirmed:true,dryRun:true}),x.sourceProvider,x.targetProvider);
+  expect(result.dryRun).toBe(true);expect(result.deleted).toBe(1);expect(await readFile(path.join(x.target,"orphan.txt"),"utf8")).toBe("keep");await expect(stat(path.join(x.target,"new.txt"))).rejects.toMatchObject({code:"ENOENT"});
+ });
+ it("never removes the source for a configured move dry-run",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"move.txt"),"keep");
+  await x.engine.run(job({mode:"move",dryRun:true}),x.sourceProvider,x.targetProvider);
+  expect(await readFile(path.join(x.source,"move.txt"),"utf8")).toBe("keep");await expect(stat(path.join(x.target,"move.txt"))).rejects.toMatchObject({code:"ENOENT"});
+ });
+ it("remembers the actual version target and creates no duplicate until source changes",async()=>{
+  let now=100;const x=await setup(()=>now);await writeFile(path.join(x.source,"file.pdf"),"new");await writeFile(path.join(x.target,"file.pdf"),"old");const j=job({conflict:"version"});
+  expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"file.pdf.100"),"utf8")).toBe("new");
+  now=200;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(0);await expect(stat(path.join(x.target,"file.pdf.200"))).rejects.toMatchObject({code:"ENOENT"});
+  await writeFile(path.join(x.source,"file.pdf"),"changed");now=300;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"file.pdf.300"),"utf8")).toBe("changed");
+ });
+ it("checkpoints completed files when a later transfer fails",async()=>{
+  const x=await setup();for(let i=1;i<=11;i++)await writeFile(path.join(x.source,`${String(i).padStart(2,"0")}.txt`),String(i));
+  let writes=0;const target=Object.create(x.targetProvider) as LocalStorageProvider;target.createWriteStream=async p=>{if(++writes===11)throw new Error("intentional transfer failure");return x.targetProvider.createWriteStream(p)};
+  const engine=new SyncEngine(x.store,Date.now,25);await expect(engine.run(job(),x.sourceProvider,target)).rejects.toThrow("intentional transfer failure");expect(Object.keys((await x.store.load(jobId)).files)).toHaveLength(10);
+ });
 });

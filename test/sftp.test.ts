@@ -9,6 +9,7 @@ function provider(){
 }
 
 describe("SFTP realPath confinement",()=>{
+ it("allows normalized descendants when the configured real root is slash",async()=>{const{p,api}=provider();Object.assign(p as unknown as {realRoot:string},{realRoot:"/"});api.realPath.mockResolvedValue("/home/user/file");api.stat.mockResolvedValue({isDirectory:false,size:1,modifyTime:1});await expect(p.stat("home/user/file")).resolves.toMatchObject({path:"home/user/file"});await expect(p.stat("../etc/passwd")).rejects.toThrow(/traversal/i)});
  it("treats an empty realPath result as a missing path",async()=>{const{p,api}=provider();api.realPath.mockResolvedValue("");await expect(p.statOrUndefined("new.txt")).resolves.toBeUndefined();expect(api.stat).not.toHaveBeenCalled()});
  it("walks to the nearest existing parent for a new nested target",async()=>{const{p,api}=provider();let created=false;api.mkdir.mockImplementation(async()=>{created=true});api.realPath.mockImplementation(async(value:string)=>value==="/safe"||created?value:"");await p.mkdir("new/nested");expect(api.realPath.mock.calls.map(([value])=>value)).toEqual(["/safe/new/nested","/safe/new","/safe","/safe/new/nested"]);expect(api.mkdir).toHaveBeenCalledWith("/safe/new/nested",true)});
  it("rejects a new path whose existing parent escapes through a symlink",async()=>{const{p,api}=provider();api.realPath.mockImplementation(async(value:string)=>value==="/safe/link"?"/outside":"");await expect(p.mkdir("link/new")).rejects.toThrow(/escape/i);expect(api.mkdir).not.toHaveBeenCalled()});
