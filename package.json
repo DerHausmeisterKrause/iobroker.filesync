@@ -8,6 +8,10 @@
   "files": [
     "admin",
     "build",
+    "src",
+    "web-src",
+    "scripts-build-web.js",
+    "tsconfig.json",
     "io-package.json",
     "LICENSE",
     "README.md",
@@ -24,6 +28,7 @@
     "test": "vitest run --coverage",
     "test:package": "mocha \"test/package/**/*.test.js\"",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "prepare": "npm run build",
     "prepack": "npm run build",
     "test:integration": "mocha \"test/integration/**/*.test.js\" --timeout 300000",
     "build:backend": "tsc -p tsconfig.json",
