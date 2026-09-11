@@ -12,8 +12,9 @@ export declare class FileSyncAdapter extends utils.Adapter {
     private stopping;
     constructor(options?: Partial<utils.AdapterOptions>);
     private ready;
+    private hasWebAdmin;
+    private ensureInfoStates;
     private processWebUsers;
-    private createWebStates;
     private startWebServer;
     private loadTls;
     private auth;

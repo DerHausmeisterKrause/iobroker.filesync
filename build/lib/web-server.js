@@ -41,7 +41,7 @@ class StandaloneWebServer {
     get port() { const address = this.server?.address(); return typeof address === "object" && address ? address.port : undefined; }
     get loggedInUsers() { return this.sessions.size; }
     async requireTls() { if (!this.api.tls)
-        throw new Error("HTTPS requires an ioBroker certificate collection"); return this.api.tls(); }
+        throw new Error("HTTPS requires configured ioBroker TLS certificates"); return this.api.tls(); }
     headers(res, api = false) { res.setHeader("X-Content-Type-Options", "nosniff"); res.setHeader("X-Frame-Options", "DENY"); res.setHeader("Referrer-Policy", "no-referrer"); res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"); if (api)
         res.setHeader("Cache-Control", "no-store"); if (this.secure)
         res.setHeader("Strict-Transport-Security", "max-age=31536000"); }
@@ -198,7 +198,7 @@ class StandaloneWebServer {
         }
         this.headers(res);
         res.setHeader("Content-Type", safe.endsWith(".js") ? "text/javascript; charset=utf-8" : safe.endsWith(".css") ? "text/css; charset=utf-8" : "text/html; charset=utf-8");
-        res.setHeader("Cache-Control", safe.endsWith("index.html") ? "no-cache" : "public, max-age=3600");
+        res.setHeader("Cache-Control", "no-store");
         res.end(data);
     }
     catch (error) {
