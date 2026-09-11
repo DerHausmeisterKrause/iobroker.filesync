@@ -22,7 +22,7 @@ jobs:
       - if: matrix.check == 'unit'
         run: npm test
       - if: matrix.check == 'build'
-        run: npm run build
+        run: npm run build && git diff --exit-code -- build web-dist
       - if: matrix.check == 'package'
         run: npm run test:package && npm pack --dry-run
   iobroker-integration:
@@ -35,3 +35,22 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run test:integration
+  packaged-runtime-smoke:
+    name: Packaged runtime smoke (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - run: test -f build/main.js && node -e "const fs=require('fs'),p=require('./package.json');if(!fs.existsSync(p.main))throw new Error('Missing package main: '+p.main)"
+      - run: npm ci
+      - run: |
+          package=$(npm pack --silent | tail -1)
+          mkdir package-smoke && cd package-smoke
+          npm init -y >/dev/null
+          npm install --ignore-scripts "../$package"
+          test -f node_modules/iobroker.filesync/build/main.js
+          test -f node_modules/iobroker.filesync/web-dist/index.html
+          test -f node_modules/iobroker.filesync/web-dist/app.js
+          test -f node_modules/iobroker.filesync/admin/jsonConfig.json
+          node -e "const p=require.resolve('iobroker.filesync');if(!p.endsWith('build/main.js'))throw new Error(p)"
