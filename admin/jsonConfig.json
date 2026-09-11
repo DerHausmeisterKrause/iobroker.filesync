@@ -1,0 +1,142 @@
+{
+  "type": "panel",
+  "items": {
+    "webHeader": {
+      "type": "header",
+      "text": "Standalone FileSync Webserver",
+      "size": 2
+    },
+    "web.enabled": {
+      "type": "checkbox",
+      "label": "Webserver aktiviert",
+      "default": true
+    },
+    "web.port": {
+      "type": "number",
+      "label": "Port",
+      "min": 1,
+      "max": 65535,
+      "default": 8095
+    },
+    "web.secure": {
+      "type": "checkbox",
+      "label": "HTTPS verwenden",
+      "default": false
+    },
+    "web.bind": {
+      "type": "text",
+      "label": "Listen-Adresse",
+      "default": "0.0.0.0"
+    },
+    "web.sessionTtlMinutes": {
+      "type": "number",
+      "label": "Session Timeout (Minuten)",
+      "min": 5,
+      "max": 10080,
+      "default": 480
+    },
+    "web.certificateCollection": {
+      "type": "certificate",
+      "label": "ioBroker Certificate Collection",
+      "hidden": "!data.web.secure"
+    },
+    "httpWarning": {
+      "type": "staticText",
+      "text": "HTTP überträgt Anmeldedaten unverschlüsselt. Nur in einem vertrauenswürdigen LAN verwenden.",
+      "hidden": "data.web.secure"
+    },
+    "groupHeader": {
+      "type": "header",
+      "text": "Gruppen",
+      "size": 2,
+      "newLine": true
+    },
+    "webGroups": {
+      "type": "table",
+      "label": "Gruppen",
+      "items": [
+        {
+          "type": "text",
+          "attr": "id",
+          "title": "Stabile ID",
+          "default": ""
+        },
+        {
+          "type": "text",
+          "attr": "name",
+          "title": "Name"
+        },
+        {
+          "type": "text",
+          "attr": "description",
+          "title": "Beschreibung"
+        },
+        {
+          "type": "checkbox",
+          "attr": "enabled",
+          "title": "Aktiv",
+          "default": true
+        }
+      ]
+    },
+    "userHeader": {
+      "type": "header",
+      "text": "Benutzer",
+      "size": 2,
+      "newLine": true
+    },
+    "adminRequired": {
+      "type": "staticText",
+      "text": "Mindestens ein aktiver Web-Administrator mit gesetztem Passwort ist erforderlich."
+    },
+    "webUsers": {
+      "type": "table",
+      "label": "Benutzer",
+      "items": [
+        {
+          "type": "text",
+          "attr": "id",
+          "title": "Stabile ID"
+        },
+        {
+          "type": "text",
+          "attr": "username",
+          "title": "Benutzername"
+        },
+        {
+          "type": "text",
+          "attr": "displayName",
+          "title": "Anzeigename"
+        },
+        {
+          "type": "checkbox",
+          "attr": "enabled",
+          "title": "Aktiv",
+          "default": true
+        },
+        {
+          "type": "text",
+          "attr": "passwordHash",
+          "title": "Password hash",
+          "hidden": true
+        },
+        {
+          "type": "password",
+          "attr": "newPassword",
+          "title": "Neues Passwort"
+        },
+        {
+          "type": "chips",
+          "attr": "groupIds",
+          "title": "Gruppen-IDs"
+        },
+        {
+          "type": "checkbox",
+          "attr": "admin",
+          "title": "Web-Admin",
+          "default": false
+        }
+      ]
+    }
+  }
+}
