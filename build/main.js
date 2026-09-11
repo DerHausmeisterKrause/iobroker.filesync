@@ -50,10 +50,14 @@ const manager_1 = require("./lib/runs/manager");
 const transfer_limit_1 = require("./lib/jobs/transfer-limit");
 const redact_1 = require("./lib/security/redact");
 const principal_1 = require("./lib/permissions/principal");
+const runtime_config_store_1 = require("./lib/runtime-config-store");
 class FileSyncAdapter extends utils.Adapter {
     cfg;
     webServer;
     secrets = {};
+    runtimeStore;
+    credentialStore;
+    mutationQueue = Promise.resolve();
     engine;
     transfers;
     runManager;
@@ -67,20 +71,10 @@ class FileSyncAdapter extends utils.Adapter {
         await this.setStateAsync("info.connection", false, true);
         try {
             this.cfg = (0, config_1.migrateConfig)(this.config);
-            const vault = this.cfg.credentialVault?.trim();
-            if (!vault || vault === "{}")
-                this.secrets = {};
-            else
-                try {
-                    const parsed = JSON.parse(vault);
-                    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object")
-                        throw new Error("invalid vault");
-                    this.secrets = parsed;
-                }
-                catch {
-                    this.secrets = {};
-                    this.log.warn("Encrypted credential vault was invalid and has been ignored");
-                }
+            const instanceDataDir = utils.getAbsoluteInstanceDataDir(this);
+            this.runtimeStore = new runtime_config_store_1.RuntimeConfigStore(instanceDataDir);
+            this.credentialStore = new runtime_config_store_1.CredentialStore(instanceDataDir, value => this.encrypt(value), value => this.decrypt(value));
+            await this.loadRuntimeConfiguration();
             await this.processWebUsers();
             this.runManager = new manager_1.RunManager(node_path_1.default.join(utils.getAbsoluteInstanceDataDir(this), "history"), error => this.redactSafe(error), this.cfg.auditRetention, 20);
             await this.runManager.load();
@@ -121,7 +115,7 @@ class FileSyncAdapter extends utils.Adapter {
             changed = true;
         }
     } if (changed)
-        await this.persistCandidate(this.cfg, this.secrets); }
+        await this.persistStaticConfig(); }
     async startWebServer() { const webRoot = node_path_1.default.join(__dirname, "..", "web-dist"); this.webServer = new web_server_1.StandaloneWebServer({ config: () => this.cfg, publicLocation: l => this.publicLocation(l), persistLocation: (location, secret) => this.saveLocation({ location, secret }), deleteLocation: async (id) => { await this.deleteLocation(id); }, persistJob: job => this.saveJob(job), deleteJob: async (id) => { await this.deleteJob(id); }, testLocation: (id, write) => this.withProvider(id, p => p.testConnection(write)), browseLocation: async (id, requestedPath, offset, limit) => { const entries = (await this.withProvider(id, p => p.list(requestedPath))).filter(x => x.type === "directory"); return { path: requestedPath, offset, limit, total: entries.length, hasMore: offset + limit < entries.length, entries: entries.slice(offset, offset + limit) }; }, startRun: (id, preview) => this.startRun(id, preview), run: id => this.runManager.get(id), runs: limit => this.runManager.history(limit), runItems: (id, offset, limit) => this.runManager.getItems(id, offset, limit), status: () => ({ version: "0.1.0", connected: true, webServer: true, activeJobs: this.runManager.activeCount, failedJobs: this.failedJobs.size, queue: this.transfers.pendingCount, locations: this.cfg.locations.length, jobs: this.cfg.jobs.length }), tls: () => this.loadTls() }, webRoot, this.cfg.web.secure, this.cfg.web.sessionTtlMinutes); try {
         await this.webServer.start(this.cfg.web.port, this.cfg.web.bind);
         const host = this.cfg.web.bind === "0.0.0.0" ? "HOST" : this.cfg.web.bind, url = `${this.cfg.web.secure ? "https" : "http"}://${host}:${this.cfg.web.port}`;
@@ -221,9 +215,37 @@ class FileSyncAdapter extends utils.Adapter {
     credentialInUse(id, exceptLocationId) { return this.cfg.locations.some(l => l.id !== exceptLocationId && "credentialId" in l && l.credentialId === id); }
     cloneConfig() { return structuredClone(this.cfg); }
     cloneSecrets() { return structuredClone(this.secrets); }
-    async persistCandidate(config, secrets) { config.credentialVault = JSON.stringify(secrets); const adapter = this; if (typeof adapter.updateConfig !== "function")
-        throw new Error("This js-controller does not provide the secure updateConfig API"); await adapter.updateConfig(config); }
-    async saveLocation(r) { const next = this.cloneConfig(), nextSecrets = this.cloneSecrets(); const requested = r.location && typeof r.location === "object" ? r.location : {}; const existing = next.locations.find(x => x.id === requested.id); const l = (0, config_1.validateLocation)((0, config_1.secureLocationCredentialId)(r.location, existing)); if (r.secret) {
+    serializeMutation(operation) { const result = this.mutationQueue.then(operation); this.mutationQueue = result.then(() => undefined, () => undefined); return result; }
+    async loadRuntimeConfiguration() {
+        if (await this.runtimeStore.isInitialized()) {
+            const runtime = await this.runtimeStore.load();
+            this.cfg.locations = runtime.locations;
+            this.cfg.jobs = runtime.jobs;
+        }
+        else
+            await this.runtimeStore.save({ version: 1, locations: this.cfg.locations, jobs: this.cfg.jobs });
+        if (await this.credentialStore.isInitialized())
+            this.secrets = await this.credentialStore.load();
+        else {
+            const vault = this.cfg.credentialVault?.trim();
+            if (vault && vault !== "{}")
+                try {
+                    const parsed = JSON.parse(vault);
+                    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object")
+                        throw new Error("invalid vault");
+                    this.secrets = parsed;
+                }
+                catch {
+                    this.secrets = {};
+                    this.log.warn("Legacy credential vault was invalid and has been ignored");
+                }
+            await this.credentialStore.save(this.secrets);
+        }
+    }
+    async persistStaticConfig() { const adapter = this; if (typeof adapter.updateConfig !== "function")
+        throw new Error("This js-controller does not provide the secure updateConfig API"); await adapter.updateConfig(this.cfg); }
+    async persistRuntime(config, secrets) { await this.credentialStore.save(secrets); await this.runtimeStore.save({ version: 1, locations: config.locations, jobs: config.jobs }); }
+    saveLocation(r) { return this.serializeMutation(async () => { const next = this.cloneConfig(), nextSecrets = this.cloneSecrets(); const requested = r.location && typeof r.location === "object" ? r.location : {}; const existing = next.locations.find(x => x.id === requested.id); const l = (0, config_1.validateLocation)((0, config_1.secureLocationCredentialId)(r.location, existing)); if (r.secret) {
         r.secret = (0, config_1.validateSecret)(r.secret);
         if (!("credentialId" in l))
             throw new Error("Local locations cannot store credentials");
@@ -234,18 +256,16 @@ class FileSyncAdapter extends utils.Adapter {
         next.locations.push(l);
     else
         next.locations[i] = l; for (const job of next.jobs.filter(j => j.sourceLocationId === l.id || j.targetLocationId === l.id))
-        (0, config_1.validateRelations)(next, job); await this.persistCandidate(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; await this.rebuildSchedule(); return this.publicLocation(l); }
-    async deleteLocation(id) { if (this.cfg.jobs.some(j => j.sourceLocationId === id || j.targetLocationId === id))
+        (0, config_1.validateRelations)(next, job); await this.persistRuntime(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; await this.rebuildSchedule(); return this.publicLocation(l); }); }
+    deleteLocation(id) { return this.serializeMutation(async () => { if (this.cfg.jobs.some(j => j.sourceLocationId === id || j.targetLocationId === id))
         throw new Error("Location is referenced by a job"); const next = this.cloneConfig(), nextSecrets = this.cloneSecrets(), l = next.locations.find(x => x.id === id); next.locations = next.locations.filter(x => x.id !== id); if (l && "credentialId" in l && !next.locations.some(x => "credentialId" in x && x.credentialId === l.credentialId))
-        delete nextSecrets[l.credentialId]; await this.persistCandidate(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; await this.rebuildSchedule(); return true; }
-    async saveJob(raw) { const j = (0, config_1.validateJob)(raw), next = this.cloneConfig(), nextSecrets = this.cloneSecrets(); const i = next.jobs.findIndex(x => x.id === j.id); if (i < 0)
+        delete nextSecrets[l.credentialId]; await this.persistRuntime(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; await this.rebuildSchedule(); return true; }); }
+    saveJob(raw) { return this.serializeMutation(async () => { const j = (0, config_1.validateJob)(raw), next = this.cloneConfig(), nextSecrets = this.cloneSecrets(); const i = next.jobs.findIndex(x => x.id === j.id); if (i < 0)
         next.jobs.push(j);
     else
         next.jobs[i] = j; (0, config_1.validateRelations)(next, j); const { relationWarnings } = await Promise.resolve().then(() => __importStar(require("./lib/config"))); for (const warning of relationWarnings(next.jobs))
-        this.log.warn(warning); await this.persistCandidate(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; await this.rebuildSchedule(); return j; }
-    async deleteJob(id) { const next = this.cloneConfig(), nextSecrets = this.cloneSecrets(); next.jobs = next.jobs.filter(x => x.id !== id); await this.persistCandidate(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; this.failedJobs.delete(id); await this.rebuildSchedule(); await this.updateCounters(); return true; }
-    async persist() { this.cfg.credentialVault = JSON.stringify(this.secrets); const adapter = this; if (typeof adapter.updateConfig !== "function")
-        throw new Error("This js-controller does not provide the secure updateConfig API"); await adapter.updateConfig(this.cfg); }
+        this.log.warn(warning); await this.persistRuntime(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; await this.rebuildSchedule(); return j; }); }
+    deleteJob(id) { return this.serializeMutation(async () => { const next = this.cloneConfig(), nextSecrets = this.cloneSecrets(); next.jobs = next.jobs.filter(x => x.id !== id); await this.persistRuntime(next, nextSecrets); this.cfg = next; this.secrets = nextSecrets; this.failedJobs.delete(id); await this.rebuildSchedule(); await this.updateCounters(); return true; }); }
     async rebuildSchedule() { for (const t of this.timers.values())
         clearInterval(t); this.timers.clear(); for (const j of this.cfg.jobs) {
         await this.ensureJobStates(j);
@@ -315,7 +335,7 @@ class FileSyncAdapter extends utils.Adapter {
         candidate.enabled = state.val;
         candidate.updatedAt = new Date().toISOString();
         try {
-            await this.persistCandidate(next, nextSecrets);
+            await this.persistRuntime(next, nextSecrets);
             this.cfg = next;
             this.secrets = nextSecrets;
             if (!candidate.enabled)

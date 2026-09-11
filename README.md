@@ -33,7 +33,11 @@ Web-Admins sehen alle Ressourcen. Normale Benutzer sehen eine Location, einen Jo
 
 ## Konfiguration und Daten
 
-Die JsonConfig-Adaptereinstellungen enthalten nur Webserver, ioBroker-Zertifikatsauswahl, Gruppen und Web-Benutzer. Locations, Jobs, Runs und Diagnose gehören ausschließlich in die Standalone-Webseite. `configVersion: 2` ergänzt `web`, `webGroups`, `webUsers` und `groupIds` an Locations/Jobs. Der bestehende `SyncEngine`-/Provider-/RunManager-/Snapshot-Core bleibt erhalten.
+Die ioBroker-`native`-Konfiguration enthält die statische Adapterkonfiguration: Webserver- und TLS-Einstellungen, Gruppen, Web-Benutzer sowie allgemeine Runtime-Einstellungen. Locations und Jobs werden dagegen atomar in `runtime-config.json` im offiziellen Instance-Data-Verzeichnis gespeichert. Normale CRUD-Aktionen ändern deshalb nicht `native` und starten weder Adapter noch Webserver neu.
+
+SMB-/SFTP-Secrets liegen getrennt in `credentials.enc`. Der Inhalt wird mit der vom js-controller bereitgestellten System-Secret-Implementierung des Adapters verschlüsselt; `runtime-config.json` enthält ausschließlich die `credentialId`. Beim ersten Start nach einem Update werden bestehende `native.locations`, `native.jobs` und `native.credentialVault` einmalig und unter Erhalt aller IDs übernommen. Die bestehenden History- und Index-Stores bleiben für Runs beziehungsweise Sync-Snapshots verantwortlich.
+
+`configVersion: 2` ergänzt `web`, `webGroups`, `webUsers` und `groupIds` an Locations/Jobs. Der bestehende `SyncEngine`-/Provider-/RunManager-/Snapshot-Core bleibt erhalten.
 
 Runtime-States: `info.connection`, `info.webServerRunning`, `info.webServerPort`, `info.webServerSecure`, `info.webServerUrl`, Job-/Queue-Zähler und bestehende Job-States. Keine Credentials werden in States geschrieben.
 
