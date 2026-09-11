@@ -67,7 +67,7 @@ class RunManager {
     } record.status = "running"; record.startedAt = Date.now(); await this.persist(); try {
         const result = await invocation.execute(record.runId);
         record.summary = result.summary;
-        if (record.dryRun && result.items) {
+        if (result.items) {
             this.details.set(record.runId, { runId: record.runId, items: result.items, total: result.total ?? result.items.length });
             this.trimDetails();
         }
