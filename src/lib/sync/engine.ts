@@ -22,8 +22,8 @@ export class SyncEngine{
  constructor(private readonly store:PersistentStore,private readonly now:()=>number=Date.now,private readonly checkpointSize=25,private readonly transfer:<T>(operation:()=>Promise<T>)=>Promise<T>=operation=>operation(),private readonly checkpointFailed:(error:unknown)=>void=()=>undefined,private readonly targetLock=new TargetPathLock()){}
  async run(job:Job,source:StorageProvider,target:StorageProvider,dryRunOverride?:boolean):Promise<TransferResult>{
   const dryRun=job.dryRun||dryRunOverride===true;
-  const result:TransferResult={copied:0,overwritten:0,versioned:0,moved:0,skipped:0,failed:0,deleted:0,bytes:0,scanned:0,dryRun,totalActions:0,resultTruncated:false,items:[]};
-  const action=(filePath:string,kind:string)=>{result.totalActions++;if(result.items.length<MAX_RESULT_ITEMS)result.items.push({path:filePath,action:kind});else result.resultTruncated=true};
+  const result:TransferResult={copied:0,overwritten:0,versioned:0,moved:0,skipped:0,stabilityDeferred:0,failed:0,deleted:0,bytes:0,scanned:0,dryRun,totalActions:0,resultTruncated:false,items:[]};
+  const action=(filePath:string,kind:string,detail?:string,remainingSeconds?:number)=>{result.totalActions++;if(result.items.length<MAX_RESULT_ITEMS)result.items.push({path:filePath,action:kind,...(detail?{detail}:{}),...(remainingSeconds!==undefined?{remainingSeconds}:{})});else result.resultTruncated=true};
   let snapshot=await this.store.load(job.id),dirty=0;
   const checkpoint=async(force=false)=>{if(!dryRun&&(force||dirty>=this.checkpointSize)){await this.store.save(job.id,snapshot);dirty=0}};
   try{
@@ -35,10 +35,10 @@ export class SyncEngine{
     const previousTarget=old?.targetPath??canonical;const previousTargetMeta=await target.statOrUndefined(previousTarget);const canonicalTargetMeta=previousTarget===canonical?previousTargetMeta:await target.statOrUndefined(canonical);let repair=targetNeedsRepair(file,previousTargetMeta);
     if(job.hashCheck&&!repair&&previousTargetMeta)repair=await hash(source,src)!==await hash(target,previousTarget);
     if(job.mode==="incremental"&&!changed(file,old)&&!repair){action(file.path,"skip");result.skipped++;continue}
-    if(job.stabilitySeconds>0){const pending=snapshot.pending[file.path];const unchanged=pending&&pending.size===file.size&&pending.mtimeMs===file.mtimeMs;if(!stableSince(file,pending,job.stabilitySeconds*1000,this.now())){snapshot.pending[file.path]={size:file.size,mtimeMs:file.mtimeMs,observedAt:unchanged?pending.observedAt:this.now()};dirty++;await checkpoint();result.skipped++;continue}}
+    if(job.stabilitySeconds>0){const pending=snapshot.pending[file.path];const unchanged=pending&&pending.size===file.size&&pending.mtimeMs===file.mtimeMs;const observedAt=unchanged?pending.observedAt:this.now();if(!stableSince(file,pending,job.stabilitySeconds*1000,this.now())){snapshot.pending[file.path]={size:file.size,mtimeMs:file.mtimeMs,observedAt};dirty++;await checkpoint();const remaining=Math.max(1,Math.ceil((observedAt+job.stabilitySeconds*1000-this.now())/1000));action(file.path,"wait-stable","Datei muss noch unverändert bleiben",remaining);result.stabilityDeferred++;continue}}
     delete snapshot.pending[file.path];
     let canonicalExists=canonicalTargetMeta!==undefined,final=canonical,kind: "copy"|"overwrite"|"version"=canonicalExists&&job.conflict==="version"?"version":canonicalExists?"overwrite":"copy";
-    if(dryRun){if(canonicalExists&&job.conflict==="never"){result.skipped++;continue}if(canonicalExists&&job.conflict==="error")throw new Error(`Target conflict: ${file.path}`);if(kind==="version")final=`${canonical}.${this.now()}`}
+    if(dryRun){if(canonicalExists&&job.conflict==="never"){action(file.path,"skip","Wegen Konfliktregel übersprungen");result.skipped++;continue}if(canonicalExists&&job.conflict==="error")throw new Error(`Target conflict: ${file.path}`);if(kind==="version")final=`${canonical}.${this.now()}`}
     if(!dryRun){
      const outcome=await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(canonical)}`,()=>this.transfer(async()=>{
       // The conflict decision and destination selection must use state observed while holding the path lock.

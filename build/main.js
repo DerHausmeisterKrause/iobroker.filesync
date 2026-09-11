@@ -51,6 +51,7 @@ const transfer_limit_1 = require("./lib/jobs/transfer-limit");
 const redact_1 = require("./lib/security/redact");
 const principal_1 = require("./lib/permissions/principal");
 const runtime_config_store_1 = require("./lib/runtime-config-store");
+const local_links_1 = require("./lib/local-links");
 class FileSyncAdapter extends utils.Adapter {
     cfg;
     webServer;
@@ -71,6 +72,8 @@ class FileSyncAdapter extends utils.Adapter {
         await this.setStateAsync("info.connection", false, true);
         try {
             this.cfg = (0, config_1.migrateConfig)(this.config);
+            if (!this.cfg.web.enabled)
+                await this.syncLocalLinks(false);
             const instanceDataDir = utils.getAbsoluteInstanceDataDir(this);
             this.runtimeStore = new runtime_config_store_1.RuntimeConfigStore(instanceDataDir);
             this.credentialStore = new runtime_config_store_1.CredentialStore(instanceDataDir, value => this.encrypt(value), value => this.decrypt(value));
@@ -116,15 +119,17 @@ class FileSyncAdapter extends utils.Adapter {
         }
     } if (changed)
         await this.persistStaticConfig(); }
+    async syncLocalLinks(running) { const id = `system.adapter.${this.namespace}`, object = await this.getForeignObjectAsync(id), wanted = (0, local_links_1.localLinksForWeb)(this.cfg.web, running); if (!(0, local_links_1.localLinksEqual)(object?.common?.localLinks, wanted))
+        await this.extendForeignObjectAsync(id, { common: { localLinks: wanted } }); }
     async startWebServer() { const webRoot = node_path_1.default.join(__dirname, "..", "web-dist"); this.webServer = new web_server_1.StandaloneWebServer({ config: () => this.cfg, publicLocation: l => this.publicLocation(l), persistLocation: (location, secret) => this.saveLocation({ location, secret }), deleteLocation: async (id) => { await this.deleteLocation(id); }, persistJob: job => this.saveJob(job), deleteJob: async (id) => { await this.deleteJob(id); }, testLocation: (id, write) => this.withProvider(id, p => p.testConnection(write)), browseLocation: async (id, requestedPath, offset, limit) => { const entries = (await this.withProvider(id, p => p.list(requestedPath))).filter(x => x.type === "directory"); return { path: requestedPath, offset, limit, total: entries.length, hasMore: offset + limit < entries.length, entries: entries.slice(offset, offset + limit) }; }, startRun: (id, preview) => this.startRun(id, preview), run: id => this.runManager.get(id), runs: limit => this.runManager.history(limit), runItems: (id, offset, limit) => this.runManager.getItems(id, offset, limit), status: () => ({ version: "0.1.0", connected: true, webServer: true, activeJobs: this.runManager.activeCount, failedJobs: this.failedJobs.size, queue: this.transfers.pendingCount, locations: this.cfg.locations.length, jobs: this.cfg.jobs.length }), tls: () => this.loadTls() }, webRoot, this.cfg.web.secure, this.cfg.web.sessionTtlMinutes); try {
         await this.webServer.start(this.cfg.web.port, this.cfg.web.bind);
         const host = this.cfg.web.bind === "0.0.0.0" ? "HOST" : this.cfg.web.bind, url = `${this.cfg.web.secure ? "https" : "http"}://${host}:${this.cfg.web.port}`;
-        await Promise.all([this.setStateAsync("info.webServerRunning", true, true), this.setStateAsync("info.webServerUrl", url, true)]);
+        await Promise.all([this.setStateAsync("info.webServerRunning", true, true), this.setStateAsync("info.webServerUrl", url, true), this.syncLocalLinks(true)]);
         if (!this.cfg.web.secure)
             this.log.warn("FileSync HTTP login is unencrypted; use it only on a trusted LAN");
     }
     catch (error) {
-        await this.setStateAsync("info.webServerRunning", false, true);
+        await Promise.all([this.setStateAsync("info.webServerRunning", false, true), this.syncLocalLinks(false)]);
         throw new Error(`FileSync web server could not listen on ${this.cfg.web.bind}:${this.cfg.web.port}: ${this.redactSafe(error)}`);
     } }
     async loadTls() { const { certPublic, certPrivate, certChained } = this.cfg.web; if (!certPublic || !certPrivate)
@@ -294,7 +299,7 @@ class FileSyncAdapter extends utils.Adapter {
             await Promise.all([this.setStateAsync(`jobs.${id}.status`, "success", true), this.setStateAsync(`jobs.${id}.lastSuccess`, Date.now(), true), this.setStateAsync(`jobs.${id}.filesScanned`, result.scanned, true), this.setStateAsync(`jobs.${id}.filesCopied`, result.copied, true), this.setStateAsync(`jobs.${id}.filesSkipped`, result.skipped, true), this.setStateAsync(`jobs.${id}.filesFailed`, result.failed, true), this.setStateAsync(`jobs.${id}.bytesCopied`, result.bytes, true)]);
             this.failedJobs.delete(id);
         }
-        return { summary: { scanned: result.scanned, wouldCopy: result.copied - result.overwritten - result.versioned, wouldOverwrite: result.overwritten, wouldVersion: result.versioned, wouldMove: result.moved, wouldDelete: result.deleted, bytes: result.bytes, totalActions: result.totalActions, truncated: result.resultTruncated }, items: result.items, total: result.totalActions };
+        return { summary: { scanned: result.scanned, copied: result.copied - result.overwritten - result.versioned, overwritten: result.overwritten, versioned: result.versioned, moved: result.moved, deleted: result.deleted, skipped: result.skipped, stabilityDeferred: result.stabilityDeferred, bytes: result.bytes, totalActions: result.totalActions, truncated: result.resultTruncated }, items: result.items, total: result.totalActions };
     }
     catch (error) {
         const safe = this.redactSafe(error);

@@ -8,7 +8,6 @@
 .toolbar{flex-wrap:wrap;min-width:0}.toolbar h1,.toolbar h2{margin-right:auto}.toolbar>button{flex:0 0 auto}
 .helper{font-size:.875rem;font-weight:400;color:#526273;line-height:1.4}.empty-state{padding:1.25rem;text-align:center;background:#eef3f8;border-radius:8px;font-weight:600}
 .info{position:relative;display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;padding:0;border-radius:50%;background:#526273;font-size:.8rem;font-weight:700;vertical-align:middle}
-.info::after{content:attr(data-help);position:absolute;z-index:2;left:50%;bottom:calc(100% + .55rem);width:min(20rem,75vw);padding:.65rem .75rem;border-radius:7px;background:#18212f;color:white;font-size:.8rem;font-weight:400;line-height:1.35;box-shadow:0 5px 18px #0005;opacity:0;visibility:hidden;transform:translate(-50%,.25rem);transition:.15s;pointer-events:none;white-space:normal}
-.info:hover::after,.info:focus-visible::after,.info.open::after{opacity:1;visibility:visible;transform:translate(-50%,0)}
+.help-popover{position:fixed;z-index:1000;width:min(20rem,calc(100vw - 20px));padding:.65rem .75rem;border-radius:7px;background:#18212f;color:white;font-size:.8rem;font-weight:400;line-height:1.35;box-shadow:0 5px 18px #0005;pointer-events:none;white-space:normal}
 .info:focus-visible{outline:3px solid #8fc7ff;outline-offset:2px}.groups .check{display:flex;width:max-content}.groups .check input{flex:0 0 auto}
 @media(max-width:700px){#toasts{right:.75rem;bottom:.75rem;left:.75rem;max-width:none}.modal{padding:.75rem;align-items:start}.modal .card{width:100%;max-height:calc(100dvh - 1.5rem);padding:1.2rem}.toolbar{align-items:flex-start}.toolbar h1,.toolbar h2{flex:1 1 12rem;margin-top:0}.toolbar>button{margin-left:auto}.list{display:block;overflow-x:auto}}

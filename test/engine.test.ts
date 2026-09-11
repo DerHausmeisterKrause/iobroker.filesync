@@ -22,7 +22,7 @@ describe("SyncEngine",()=>{
   const x=await setup(),file=path.join(x.source,"hello.txt");await writeFile(file,"Hello FileSync");const j=job({preserveTimestamps:true});
   expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"hello.txt"),"utf8")).toBe("Hello FileSync");
   await writeFile(file,"Hello FileSync updated");expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect(await readFile(path.join(x.target,"hello.txt"),"utf8")).toBe("Hello FileSync updated");
-  const unchanged=await x.engine.run(j,x.sourceProvider,x.targetProvider);expect(unchanged.copied).toBe(0);expect(unchanged.skipped).toBe(1);
+  const unchanged=await x.engine.run(j,x.sourceProvider,x.targetProvider);expect(unchanged.copied).toBe(0);expect(unchanged.skipped).toBe(1);expect(unchanged.items).toContainEqual({path:"hello.txt",action:"skip"});
  });
  it("previews a local copy without writing and performs it when dry-run is disabled",async()=>{
   const x=await setup();await writeFile(path.join(x.source,"preview.txt"),"preview");
@@ -31,7 +31,7 @@ describe("SyncEngine",()=>{
  });
  it("persists an unchanged pending observation until the stability window expires",async()=>{
   let now=0;const x=await setup(()=>now);await writeFile(path.join(x.source,"file.pdf"),"stable");await utimes(path.join(x.source,"file.pdf"),1,1);const j=job({stabilitySeconds:10});
-  expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(0);expect((await x.store.load(jobId)).pending?.["file.pdf"].observedAt).toBe(0);
+  const first=await x.engine.run(j,x.sourceProvider,x.targetProvider);expect(first).toMatchObject({scanned:1,copied:0,skipped:0,stabilityDeferred:1});expect(first.items).toEqual([{path:"file.pdf",action:"wait-stable",detail:"Datei muss noch unverändert bleiben",remainingSeconds:10}]);expect((await x.store.load(jobId)).pending?.["file.pdf"].observedAt).toBe(0);
   now=5000;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(0);expect((await x.store.load(jobId)).pending?.["file.pdf"].observedAt).toBe(0);
   now=11000;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect((await x.store.load(jobId)).pending?.["file.pdf"]).toBeUndefined();expect(await readFile(path.join(x.target,"file.pdf"),"utf8")).toBe("stable");
  });
