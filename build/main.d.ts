@@ -18,6 +18,7 @@ export declare class FileSyncAdapter extends utils.Adapter {
     private hasWebAdmin;
     private ensureInfoStates;
     private processWebUsers;
+    private syncLocalLinks;
     private startWebServer;
     private loadTls;
     private auth;

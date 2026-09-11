@@ -165,6 +165,7 @@ export interface TransferResult {
     versioned: number;
     moved: number;
     skipped: number;
+    stabilityDeferred: number;
     failed: number;
     deleted: number;
     bytes: number;
@@ -175,5 +176,7 @@ export interface TransferResult {
     items: Array<{
         path: string;
         action: string;
+        detail?: string;
+        remainingSeconds?: number;
     }>;
 }

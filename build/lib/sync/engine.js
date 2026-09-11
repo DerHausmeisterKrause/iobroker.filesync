@@ -47,9 +47,9 @@ class SyncEngine {
     }
     async run(job, source, target, dryRunOverride) {
         const dryRun = job.dryRun || dryRunOverride === true;
-        const result = { copied: 0, overwritten: 0, versioned: 0, moved: 0, skipped: 0, failed: 0, deleted: 0, bytes: 0, scanned: 0, dryRun, totalActions: 0, resultTruncated: false, items: [] };
-        const action = (filePath, kind) => { result.totalActions++; if (result.items.length < MAX_RESULT_ITEMS)
-            result.items.push({ path: filePath, action: kind });
+        const result = { copied: 0, overwritten: 0, versioned: 0, moved: 0, skipped: 0, stabilityDeferred: 0, failed: 0, deleted: 0, bytes: 0, scanned: 0, dryRun, totalActions: 0, resultTruncated: false, items: [] };
+        const action = (filePath, kind, detail, remainingSeconds) => { result.totalActions++; if (result.items.length < MAX_RESULT_ITEMS)
+            result.items.push({ path: filePath, action: kind, ...(detail ? { detail } : {}), ...(remainingSeconds !== undefined ? { remainingSeconds } : {}) });
         else
             result.resultTruncated = true; };
         let snapshot = await this.store.load(job.id), dirty = 0;
@@ -82,11 +82,14 @@ class SyncEngine {
                 if (job.stabilitySeconds > 0) {
                     const pending = snapshot.pending[file.path];
                     const unchanged = pending && pending.size === file.size && pending.mtimeMs === file.mtimeMs;
+                    const observedAt = unchanged ? pending.observedAt : this.now();
                     if (!(0, reconciliation_1.stableSince)(file, pending, job.stabilitySeconds * 1000, this.now())) {
-                        snapshot.pending[file.path] = { size: file.size, mtimeMs: file.mtimeMs, observedAt: unchanged ? pending.observedAt : this.now() };
+                        snapshot.pending[file.path] = { size: file.size, mtimeMs: file.mtimeMs, observedAt };
                         dirty++;
                         await checkpoint();
-                        result.skipped++;
+                        const remaining = Math.max(1, Math.ceil((observedAt + job.stabilitySeconds * 1000 - this.now()) / 1000));
+                        action(file.path, "wait-stable", "Datei muss noch unverändert bleiben", remaining);
+                        result.stabilityDeferred++;
                         continue;
                     }
                 }
@@ -94,6 +97,7 @@ class SyncEngine {
                 let canonicalExists = canonicalTargetMeta !== undefined, final = canonical, kind = canonicalExists && job.conflict === "version" ? "version" : canonicalExists ? "overwrite" : "copy";
                 if (dryRun) {
                     if (canonicalExists && job.conflict === "never") {
+                        action(file.path, "skip", "Wegen Konfliktregel übersprungen");
                         result.skipped++;
                         continue;
                     }
