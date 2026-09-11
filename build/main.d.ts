@@ -3,6 +3,9 @@ export declare class FileSyncAdapter extends utils.Adapter {
     private cfg;
     private webServer?;
     private secrets;
+    private runtimeStore;
+    private credentialStore;
+    private mutationQueue;
     private engine;
     private transfers;
     private runManager;
@@ -25,12 +28,14 @@ export declare class FileSyncAdapter extends utils.Adapter {
     private credentialInUse;
     private cloneConfig;
     private cloneSecrets;
-    private persistCandidate;
+    private serializeMutation;
+    private loadRuntimeConfiguration;
+    private persistStaticConfig;
+    private persistRuntime;
     private saveLocation;
     private deleteLocation;
     private saveJob;
     private deleteJob;
-    private persist;
     private rebuildSchedule;
     private ensureJobStates;
     private startRun;
