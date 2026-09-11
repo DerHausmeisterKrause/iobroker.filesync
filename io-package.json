@@ -22,7 +22,7 @@
     "dataSource": "push",
     "icon": "filesync.svg",
     "adminUI": {
-      "config": "materialize"
+      "config": "json"
     },
     "enabled": true,
     "extIcon": "https://raw.githubusercontent.com/DerHausmeisterKrause/iobroker.filesync/main/admin/filesync.svg",
@@ -55,7 +55,7 @@
     }
   },
   "native": {
-    "configVersion": 1,
+    "configVersion": 2,
     "locations": [],
     "jobs": [],
     "groups": [],
@@ -63,7 +63,17 @@
     "maxConcurrentTransfers": 2,
     "healthIntervalSeconds": 300,
     "auditRetention": 500,
-    "credentialVault": "{}"
+    "credentialVault": "{}",
+    "web": {
+      "enabled": true,
+      "port": 8095,
+      "secure": false,
+      "bind": "0.0.0.0",
+      "sessionTtlMinutes": 480,
+      "certificateCollection": ""
+    },
+    "webGroups": [],
+    "webUsers": []
   },
   "encryptedNative": [
     "credentialVault"
@@ -129,6 +139,58 @@
         "read": true,
         "write": false,
         "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.webServerRunning",
+      "type": "state",
+      "common": {
+        "name": "Web server running",
+        "type": "boolean",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.webServerPort",
+      "type": "state",
+      "common": {
+        "name": "Web server port",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 8095
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.webServerSecure",
+      "type": "state",
+      "common": {
+        "name": "Web server secure",
+        "type": "boolean",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.webServerUrl",
+      "type": "state",
+      "common": {
+        "name": "Web server URL",
+        "type": "string",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": ""
       },
       "native": {}
     }
