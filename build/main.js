@@ -62,49 +62,67 @@ class FileSyncAdapter extends utils.Adapter {
     health;
     stopping = false;
     constructor(options = {}) { super({ ...options, name: "filesync" }); this.on("ready", () => void this.ready().catch(e => this.log.error(this.redactSafe(e)))); this.on("message", obj => void this.message(obj).catch(e => this.log.error(this.redactSafe(e)))); this.on("stateChange", (id, state) => void this.state(id, state).catch(e => this.log.warn(this.redactSafe(e)))); this.on("unload", cb => void this.unload(cb).catch(e => { this.log.error(this.redactSafe(e)); cb(); })); }
-    async ready() { try {
-        this.cfg = (0, config_1.migrateConfig)(this.config);
-        try {
-            this.secrets = JSON.parse(this.cfg.credentialVault);
-        }
-        catch {
-            this.secrets = {};
-            this.log.warn("Encrypted credential vault was invalid and has been ignored");
-        }
-        await this.processWebUsers();
-        this.runManager = new manager_1.RunManager(node_path_1.default.join(utils.getAbsoluteInstanceDataDir(this), "history"), error => this.redactSafe(error), this.cfg.auditRetention, 20);
-        await this.runManager.load();
-        this.transfers = new transfer_limit_1.TransferLimiter(this.cfg.maxConcurrentTransfers, () => { void this.updateCounters().catch(e => this.log.debug(this.redactSafe(e))); });
-        this.engine = new engine_1.SyncEngine(new store_1.PersistentStore(node_path_1.default.join(utils.getAbsoluteInstanceDataDir(this), "indexes")), Date.now, 25, operation => this.transfers.run(operation), e => this.log.error(`Snapshot checkpoint failed: ${this.redactSafe(e)}`));
-        await this.setObjectNotExistsAsync("info.connection", { type: "state", common: { name: "Connected", type: "boolean", role: "indicator.connected", read: true, write: false }, native: {} });
-        for (const [id, name] of [["info.activeJobs", "Active jobs"], ["info.failedJobs", "Failed jobs"], ["info.queuedTransfers", "Queued transfers"]])
-            await this.setObjectNotExistsAsync(id, { type: "state", common: { name, type: "number", role: "value", read: true, write: false }, native: {} });
-        await this.subscribeStatesAsync("jobs.*.trigger");
-        await this.subscribeStatesAsync("jobs.*.enabled");
-        await this.rebuildSchedule();
-        this.health = setInterval(() => void this.checkHealth(), this.cfg.healthIntervalSeconds * 1000);
-        await this.createWebStates();
-        if (this.cfg.web.enabled)
-            await this.startWebServer();
-        await this.setStateAsync("info.connection", true, true);
-        await this.updateCounters();
-    }
-    catch (e) {
-        this.log.error(this.redactSafe(e));
+    async ready() {
+        await this.ensureInfoStates();
         await this.setStateAsync("info.connection", false, true);
-    } }
+        try {
+            this.cfg = (0, config_1.migrateConfig)(this.config);
+            const vault = this.cfg.credentialVault?.trim();
+            if (!vault || vault === "{}")
+                this.secrets = {};
+            else
+                try {
+                    const parsed = JSON.parse(vault);
+                    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object")
+                        throw new Error("invalid vault");
+                    this.secrets = parsed;
+                }
+                catch {
+                    this.secrets = {};
+                    this.log.warn("Encrypted credential vault was invalid and has been ignored");
+                }
+            await this.processWebUsers();
+            this.runManager = new manager_1.RunManager(node_path_1.default.join(utils.getAbsoluteInstanceDataDir(this), "history"), error => this.redactSafe(error), this.cfg.auditRetention, 20);
+            await this.runManager.load();
+            this.transfers = new transfer_limit_1.TransferLimiter(this.cfg.maxConcurrentTransfers, () => { void this.updateCounters().catch(e => this.log.debug(this.redactSafe(e))); });
+            this.engine = new engine_1.SyncEngine(new store_1.PersistentStore(node_path_1.default.join(utils.getAbsoluteInstanceDataDir(this), "indexes")), Date.now, 25, operation => this.transfers.run(operation), e => this.log.error(`Snapshot checkpoint failed: ${this.redactSafe(e)}`));
+            await this.subscribeStatesAsync("jobs.*.trigger");
+            await this.subscribeStatesAsync("jobs.*.enabled");
+            await this.rebuildSchedule();
+            this.health = setInterval(() => void this.checkHealth(), this.cfg.healthIntervalSeconds * 1000);
+            if (this.cfg.web.enabled) {
+                if (this.hasWebAdmin())
+                    await this.startWebServer().catch(error => this.log.error(`Webserver disabled/not started: ${this.redactSafe(error)}`));
+                else
+                    this.log.warn("Webserver disabled/not started: no active web administrator configured");
+            }
+            await this.setStateAsync("info.connection", true, true);
+            await this.updateCounters();
+        }
+        catch (e) {
+            this.log.error(this.redactSafe(e));
+            await this.setStateAsync("info.connection", false, true);
+        }
+    }
+    hasWebAdmin() { return this.cfg.webUsers.some(user => user.enabled && user.admin && user.passwordHash); }
+    async ensureInfoStates() {
+        const states = [
+            ["info.connection", "Connected", "boolean", "indicator.connected"], ["info.activeJobs", "Active jobs", "number", "value"], ["info.failedJobs", "Failed jobs", "number", "value"], ["info.queuedTransfers", "Queued transfers", "number", "value"],
+            ["info.webServerRunning", "Web server running", "boolean", "value"], ["info.webServerPort", "Web server port", "number", "value"], ["info.webServerSecure", "Web server secure", "boolean", "value"], ["info.webServerUrl", "Web server URL", "string", "value"]
+        ];
+        for (const [id, name, type, role] of states)
+            await this.setObjectNotExistsAsync(id, { type: "state", common: { name, type, role, read: true, write: false }, native: {} });
+        await Promise.all([this.setStateAsync("info.webServerRunning", false, true), this.setStateAsync("info.webServerPort", Number(this.config.web?.port ?? 8095), true), this.setStateAsync("info.webServerSecure", Boolean(this.config.web?.secure), true), this.setStateAsync("info.webServerUrl", "", true)]);
+    }
     async processWebUsers() { let changed = false; for (const user of this.cfg.webUsers) {
         if (user.newPassword) {
             user.passwordHash = await (0, web_auth_1.hashPassword)(user.newPassword);
             delete user.newPassword;
             changed = true;
         }
-    } if (this.cfg.web.enabled && !this.cfg.webUsers.some(user => user.enabled && user.admin && user.passwordHash))
-        throw new Error("Mindestens ein aktiver Web-Administrator erforderlich."); if (changed)
+    } if (changed)
         await this.persistCandidate(this.cfg, this.secrets); }
-    async createWebStates() { for (const [id, name, type] of [["info.webServerRunning", "Web server running", "boolean"], ["info.webServerPort", "Web server port", "number"], ["info.webServerSecure", "Web server secure", "boolean"], ["info.webServerUrl", "Web server URL", "string"]])
-        await this.setObjectNotExistsAsync(id, { type: "state", common: { name, type, role: "value", read: true, write: false }, native: {} }); await Promise.all([this.setStateAsync("info.webServerRunning", false, true), this.setStateAsync("info.webServerPort", this.cfg.web.port, true), this.setStateAsync("info.webServerSecure", this.cfg.web.secure, true)]); }
-    async startWebServer() { const webRoot = node_path_1.default.join(__dirname, "..", "web-dist"); this.webServer = new web_server_1.StandaloneWebServer({ config: () => this.cfg, publicLocation: l => this.publicLocation(l), persistLocation: (location, secret) => this.saveLocation({ location, secret }), deleteLocation: async (id) => { await this.deleteLocation(id); }, persistJob: job => this.saveJob(job), deleteJob: async (id) => { await this.deleteJob(id); }, testLocation: (id, write) => this.withProvider(id, p => p.testConnection(write)), browseLocation: async (id, requestedPath, offset, limit) => { const entries = (await this.withProvider(id, p => p.list(requestedPath))).filter(x => x.type === "directory"); return { path: requestedPath, offset, limit, total: entries.length, hasMore: offset + limit < entries.length, entries: entries.slice(offset, offset + limit) }; }, startRun: (id, preview) => this.startRun(id, preview), run: id => this.runManager.get(id), runs: limit => this.runManager.history(limit), runItems: (id, offset, limit) => this.runManager.getItems(id, offset, limit), status: () => ({ connected: true, webServer: true, activeJobs: this.runManager.activeCount, failedJobs: this.failedJobs.size, queue: this.transfers.pendingCount, locations: this.cfg.locations.length, jobs: this.cfg.jobs.length }), tls: () => this.loadTls() }, webRoot, this.cfg.web.secure, this.cfg.web.sessionTtlMinutes); try {
+    async startWebServer() { const webRoot = node_path_1.default.join(__dirname, "..", "web-dist"); this.webServer = new web_server_1.StandaloneWebServer({ config: () => this.cfg, publicLocation: l => this.publicLocation(l), persistLocation: (location, secret) => this.saveLocation({ location, secret }), deleteLocation: async (id) => { await this.deleteLocation(id); }, persistJob: job => this.saveJob(job), deleteJob: async (id) => { await this.deleteJob(id); }, testLocation: (id, write) => this.withProvider(id, p => p.testConnection(write)), browseLocation: async (id, requestedPath, offset, limit) => { const entries = (await this.withProvider(id, p => p.list(requestedPath))).filter(x => x.type === "directory"); return { path: requestedPath, offset, limit, total: entries.length, hasMore: offset + limit < entries.length, entries: entries.slice(offset, offset + limit) }; }, startRun: (id, preview) => this.startRun(id, preview), run: id => this.runManager.get(id), runs: limit => this.runManager.history(limit), runItems: (id, offset, limit) => this.runManager.getItems(id, offset, limit), status: () => ({ version: "0.1.0", connected: true, webServer: true, activeJobs: this.runManager.activeCount, failedJobs: this.failedJobs.size, queue: this.transfers.pendingCount, locations: this.cfg.locations.length, jobs: this.cfg.jobs.length }), tls: () => this.loadTls() }, webRoot, this.cfg.web.secure, this.cfg.web.sessionTtlMinutes); try {
         await this.webServer.start(this.cfg.web.port, this.cfg.web.bind);
         const host = this.cfg.web.bind === "0.0.0.0" ? "HOST" : this.cfg.web.bind, url = `${this.cfg.web.secure ? "https" : "http"}://${host}:${this.cfg.web.port}`;
         await Promise.all([this.setStateAsync("info.webServerRunning", true, true), this.setStateAsync("info.webServerUrl", url, true)]);
@@ -115,9 +133,9 @@ class FileSyncAdapter extends utils.Adapter {
         await this.setStateAsync("info.webServerRunning", false, true);
         throw new Error(`FileSync web server could not listen on ${this.cfg.web.bind}:${this.cfg.web.port}: ${this.redactSafe(error)}`);
     } }
-    async loadTls() { const collection = this.cfg.web.certificateCollection; if (!collection)
-        throw new Error("HTTPS requires an ioBroker certificate collection"); const object = await this.getForeignObjectAsync(collection.startsWith("system.certificates.") ? collection : `system.certificates.${collection}`); const native = object?.native ?? {}; const key = native.privateKey ?? native.key, cert = native.certificate ?? native.cert; if (!key || !cert)
-        throw new Error("Selected ioBroker certificate collection is incomplete"); return { key, cert, ca: native.ca }; }
+    async loadTls() { const { certPublic, certPrivate, certChained } = this.cfg.web; if (!certPublic || !certPrivate)
+        throw new Error("HTTPS requires public and private ioBroker certificates"); const [certificates] = await this.getCertificatesAsync(certPublic, certPrivate, certChained); if (!certificates.key || !certificates.cert)
+        throw new Error("Selected ioBroker TLS certificates are incomplete"); return certificates; }
     auth(envelope) { (0, principal_1.assertAdminTransport)(envelope); }
     redactSafe(error) { return String((0, redact_1.redact)(error, Object.values(this.secrets).flatMap(secret => Object.values(secret).filter((value) => typeof value === "string" && value.length > 0)))); }
     publicLocation(l) { const secret = "credentialId" in l ? this.secrets[l.credentialId] ?? {} : {}; return { ...Object.fromEntries(Object.entries(l).filter(([key]) => key !== "credentialId")), target: l.type === "local" ? l.basePath : l.type === "smb" ? `${l.host}/${l.share}` : `${l.host}:${l.basePath}`, hasPassword: Boolean(secret.password), hasPrivateKey: Boolean(secret.privateKey), hasPassphrase: Boolean(secret.passphrase) }; }

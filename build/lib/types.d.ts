@@ -92,7 +92,9 @@ export interface WebConfig {
     secure: boolean;
     bind: string;
     sessionTtlMinutes: number;
-    certificateCollection?: string;
+    certPublic?: string;
+    certPrivate?: string;
+    certChained?: string;
 }
 export interface NotificationSettings {
     userId: string;

@@ -35,9 +35,9 @@
       "max": 10080,
       "default": 480
     },
-    "web.certificateCollection": {
-      "type": "certificate",
-      "label": "ioBroker Certificate Collection",
+    "web.certificates": {
+      "type": "certificates",
+      "label": "ioBroker TLS-Zertifikate",
       "hidden": "!data.web.secure"
     },
     "httpWarning": {

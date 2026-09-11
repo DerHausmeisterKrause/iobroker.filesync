@@ -32,7 +32,8 @@
     "prepack": "npm run build",
     "test:integration": "mocha \"test/integration/**/*.test.js\" --timeout 300000",
     "build:backend": "tsc -p tsconfig.json",
-    "build:web": "node scripts-build-web.js"
+    "build:web": "node scripts-build-web.js",
+    "test:browser": "node test/browser/smoke.mjs"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.1",
@@ -50,7 +51,8 @@
     "@vitest/coverage-v8": "^3.0.8",
     "eslint": "^8.57.1",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.8",
+    "playwright": "1.55.0"
   },
   "repository": {
     "type": "git",

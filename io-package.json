@@ -63,14 +63,16 @@
     "maxConcurrentTransfers": 2,
     "healthIntervalSeconds": 300,
     "auditRetention": 500,
-    "credentialVault": "{}",
+    "credentialVault": "",
     "web": {
       "enabled": true,
       "port": 8095,
       "secure": false,
       "bind": "0.0.0.0",
       "sessionTtlMinutes": 480,
-      "certificateCollection": ""
+      "certPublic": "",
+      "certPrivate": "",
+      "certChained": ""
     },
     "webGroups": [],
     "webUsers": []
