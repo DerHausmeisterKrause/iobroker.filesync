@@ -75,6 +75,7 @@ class SyncEngine {
                 if (job.hashCheck && !repair && previousTargetMeta)
                     repair = await hash(source, src) !== await hash(target, previousTarget);
                 if (job.mode === "incremental" && !(0, filter_1.changed)(file, old) && !repair) {
+                    action(file.path, "skip");
                     result.skipped++;
                     continue;
                 }
@@ -132,6 +133,7 @@ class SyncEngine {
                         return { skipped: false, final, kind };
                     }));
                     if (outcome.skipped) {
+                        action(file.path, "skip");
                         result.skipped++;
                         continue;
                     }

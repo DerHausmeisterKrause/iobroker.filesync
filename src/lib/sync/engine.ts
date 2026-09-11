@@ -34,7 +34,7 @@ export class SyncEngine{
     const old=snapshot.files[file.path];const src=path.posix.join(job.sourcePath,file.path);const canonical=path.posix.join(job.targetPath,file.path);
     const previousTarget=old?.targetPath??canonical;const previousTargetMeta=await target.statOrUndefined(previousTarget);const canonicalTargetMeta=previousTarget===canonical?previousTargetMeta:await target.statOrUndefined(canonical);let repair=targetNeedsRepair(file,previousTargetMeta);
     if(job.hashCheck&&!repair&&previousTargetMeta)repair=await hash(source,src)!==await hash(target,previousTarget);
-    if(job.mode==="incremental"&&!changed(file,old)&&!repair){result.skipped++;continue}
+    if(job.mode==="incremental"&&!changed(file,old)&&!repair){action(file.path,"skip");result.skipped++;continue}
     if(job.stabilitySeconds>0){const pending=snapshot.pending[file.path];const unchanged=pending&&pending.size===file.size&&pending.mtimeMs===file.mtimeMs;if(!stableSince(file,pending,job.stabilitySeconds*1000,this.now())){snapshot.pending[file.path]={size:file.size,mtimeMs:file.mtimeMs,observedAt:unchanged?pending.observedAt:this.now()};dirty++;await checkpoint();result.skipped++;continue}}
     delete snapshot.pending[file.path];
     let canonicalExists=canonicalTargetMeta!==undefined,final=canonical,kind: "copy"|"overwrite"|"version"=canonicalExists&&job.conflict==="version"?"version":canonicalExists?"overwrite":"copy";
@@ -48,7 +48,7 @@ export class SyncEngine{
       kind=canonicalExists&&job.conflict==="version"?"version":canonicalExists?"overwrite":"copy";final=kind==="version"?`${canonical}.${this.now()}`:canonical;
       await target.mkdir(path.posix.dirname(final));await retry(async()=>{const temp=path.posix.join(path.posix.dirname(final),`.${path.posix.basename(final)}.filesync-${randomUUID()}.tmp`);try{const before=await source.stat(src);await pipeline(await source.createReadStream(src),await target.createWriteStream(temp));const written=await target.stat(temp);const after=await source.stat(src);if(written.size!==before.size||changed(before,after))throw new Error("Source changed during transfer or size verification failed");if(job.hashCheck&&await hash(source,src)!==await hash(target,temp))throw new Error("SHA-256 verification failed");await target.replace(temp,final);if(job.preserveTimestamps&&target.setMtime)await target.setMtime(final,before.mtimeMs)}catch(e){await target.remove(temp).catch(()=>undefined);throw e}},job.retry);return {skipped:false,final,kind}
      }));
-     if(outcome.skipped){result.skipped++;continue}final=outcome.final;kind=outcome.kind;
+     if(outcome.skipped){action(file.path,"skip");result.skipped++;continue}final=outcome.final;kind=outcome.kind;
      snapshot.files[file.path]={...file,syncedAt:this.now(),hash:job.hashCheck?await hash(source,src):undefined,targetPath:final};dirty++;await checkpoint();if(job.mode==="move")await source.remove(src);
     }
     action(file.path,kind);result.copied++;if(kind==="overwrite")result.overwritten++;if(kind==="version")result.versioned++;if(job.mode==="move")result.moved++;result.bytes+=file.size;
