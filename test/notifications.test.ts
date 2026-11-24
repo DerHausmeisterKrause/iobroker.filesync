@@ -37,4 +37,35 @@ describe("personal mail notifications",()=>{
   const {service,send,warn}=await setup();await service.save("alice",parsePreferences({...defaults(),email:"alice@example.org",allJobs:true,successes:true}));send.mockRejectedValueOnce(new Error("SMTP unavailable"));
   await service.notify("job","1",true,false);expect(warn).toHaveBeenCalledTimes(1);
  });
+ it("tests only the saved address and persists private mail history and the test-mail limit",async()=>{
+  const {root,cfg,service,send,warn}=await setup();
+  expect(await service.testMail("alice")).toBe("missing");
+  await service.save("alice",parsePreferences({...defaults(),email:"alice@example.org"}));
+  expect(await service.testMail("alice")).toBe("accepted");expect(await service.testMail("alice")).toBe("limited");
+  expect(service.history("alice")).toMatchObject([{event:"Testmail",to:"alice@example.org",status:"accepted"}]);expect(service.history("bob")).toEqual([]);
+  const restored=new NotificationService(root,()=>cfg,send,warn);await restored.load();expect(await restored.testMail("alice")).toBe("limited");
+  expect((await stat(path.join(root,"notification-history.json"))).mode&0o777).toBe(0o600);
+ });
+ it("sends a warning for truncated action details when requested",async()=>{
+  const {service,send}=await setup();await service.save("alice",parsePreferences({...defaults(),email:"alice@example.org",allJobs:true,warnings:true}));
+  await service.notify("job","r1",true,false,true);expect(send.mock.calls[0][1].subject).toContain("Warnung");
+ });
+ it("sends only authorized non-preview runs in a digest and deduplicates after restart",async()=>{
+  const {root,cfg,service,send,warn}=await setup();await service.save("alice",parsePreferences({...defaults(),email:"alice@example.org",allJobs:true,digest:"daily"}));
+  cfg.jobs.push({id:"foreign",name:"Foreign",groupIds:["B"]} as Job);
+  const now=new Date(2026,10,24,9),yesterday=new Date(2026,10,23,12).getTime();
+  const runs=([{jobId:"job",status:"success",dryRun:false,finishedAt:yesterday},{jobId:"foreign",status:"error",dryRun:false,finishedAt:yesterday},{jobId:"job",status:"error",dryRun:true,finishedAt:yesterday}] as unknown) as import("../src/lib/runs/manager").RunRecord[];
+  await service.digest(runs,new Date(2026,10,24,7));expect(send).not.toHaveBeenCalled();
+  await service.digest(runs,now);expect(send).toHaveBeenCalledTimes(1);expect(send.mock.calls[0][1].text).toContain("Erfolgreich: 1");expect(send.mock.calls[0][1].text).toContain("Fehlgeschlagen: 0");
+  const restored=new NotificationService(root,()=>cfg,send,warn);await restored.load();await restored.digest(runs,now);expect(send).toHaveBeenCalledTimes(1);
+ });
+ it("sends weekly summaries for the previous complete calendar week",async()=>{
+  const {service,send}=await setup();await service.save("alice",parsePreferences({...defaults(),email:"alice@example.org",allJobs:true,digest:"weekly"}));
+  const runs=([{jobId:"job",status:"error",dryRun:false,finishedAt:new Date(2026,10,20,12).getTime()},{jobId:"job",status:"success",dryRun:false,finishedAt:new Date(2026,10,23,12).getTime()}] as unknown) as import("../src/lib/runs/manager").RunRecord[];
+  await service.digest(runs,new Date(2026,10,23,9));expect(send.mock.calls[0][1].subject).toContain("Wochenbericht");expect(send.mock.calls[0][1].text).toContain("Fehlgeschlagen: 1");expect(send.mock.calls[0][1].text).toContain("Erfolgreich: 0");
+ });
+ it("records failed sends and shares a durable hourly cap across event types",async()=>{
+  const {service,send}=await setup();await service.save("alice",parsePreferences({...defaults(),email:"alice@example.org"}));send.mockRejectedValueOnce(new Error("SMTP unavailable"));
+  expect(await service.testMail("alice")).toBe("error");expect(service.history("alice")[0].status).toBe("error");
+ });
 });
