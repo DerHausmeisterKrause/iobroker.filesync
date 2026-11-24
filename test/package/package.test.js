@@ -24,4 +24,20 @@ describe("committed runtime", () => {
             assert.ok(pkg.files.includes(file), `${file} is missing from package files`);
         }
     });
+    it("keeps the backend, frontend and package versions in sync", () => {
+        const ioPackage = require("../../io-package.json");
+        assert.equal(ioPackage.common.version, pkg.version);
+        for (const file of ["src/main.ts", "build/main.js"]) {
+            assert.equal(fs.readFileSync(path.join(__dirname, "../..", file), "utf8").match(/version:\s*"([^"]+)"/)?.[1], pkg.version, file);
+        }
+        for (const file of ["web-src/app.js", "web-dist/app.js"]) {
+            const content = fs.readFileSync(path.join(__dirname, "../..", file), "utf8");
+            assert.equal(content.match(/const frontendVersion="([^"]+)"/)?.[1], pkg.version, file);
+            assert.ok(content.includes("run-status-filter"), "Missing run filter: " + file);
+        }
+        for (const file of ["web-src/app.css", "web-dist/app.css"]) {
+            const css = fs.readFileSync(path.join(__dirname, "../..", file), "utf8");
+            assert.ok(css.includes(".run-list tr.run-success") && css.includes(".run-list tr.run-error"), "Missing run status colors: " + file);
+        }
+    });
 });
