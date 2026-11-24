@@ -1,4 +1,4 @@
-import {mkdtemp,readFile,rm,stat,utimes,writeFile} from "node:fs/promises";
+import {mkdtemp,readFile,rm,stat,writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import path from "node:path";
 import {afterEach,describe,expect,it} from "vitest";
@@ -31,16 +31,21 @@ describe("SyncEngine",()=>{
   const preview=await x.engine.run(job({dryRun:true}),x.sourceProvider,x.targetProvider);expect(preview.copied).toBe(1);await expect(stat(path.join(x.target,"preview.txt"))).rejects.toMatchObject({code:"ENOENT"});
   const actual=await x.engine.run(job({dryRun:false}),x.sourceProvider,x.targetProvider);expect(actual.copied).toBe(1);expect(await readFile(path.join(x.target,"preview.txt"),"utf8")).toBe("preview");
  });
- it("persists an unchanged pending observation until the stability window expires",async()=>{
-  let now=0;const x=await setup(()=>now);await writeFile(path.join(x.source,"file.pdf"),"stable");await utimes(path.join(x.source,"file.pdf"),1,1);const j=job({stabilitySeconds:10});
-  const first=await x.engine.run(j,x.sourceProvider,x.targetProvider);expect(first).toMatchObject({scanned:1,copied:0,skipped:0,stabilityDeferred:1});expect(first.items).toEqual([{path:"file.pdf",action:"wait-stable",detail:"Datei muss noch unverändert bleiben",remainingSeconds:10}]);expect((await x.store.load(jobId)).pending?.["file.pdf"].observedAt).toBe(0);
-  now=5000;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(0);expect((await x.store.load(jobId)).pending?.["file.pdf"].observedAt).toBe(0);
-  now=11000;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);expect((await x.store.load(jobId)).pending?.["file.pdf"]).toBeUndefined();expect(await readFile(path.join(x.target,"file.pdf"),"utf8")).toBe("stable");
+ it.each(["manual","interval","change"] as const)("copies immediately for %s even with legacy stability seconds",async(type)=>{
+  const x=await setup(()=>0);await writeFile(path.join(x.source,"file.pdf"),"stable");await x.store.save(jobId,{version:1,files:{},pending:{"file.pdf":{size:6,mtimeMs:0,observedAt:0}}});
+  const result=await x.engine.run(job({stabilitySeconds:86400,trigger:{type,intervalSeconds:30}}),x.sourceProvider,x.targetProvider);
+  expect(result).toMatchObject({scanned:1,copied:1,stabilityDeferred:0});expect(await readFile(path.join(x.target,"file.pdf"),"utf8")).toBe("stable");expect((await x.store.load(jobId)).pending).toEqual({});
  });
- it("restarts the stability observation when source metadata changes",async()=>{
-  let now=0;const x=await setup(()=>now);const file=path.join(x.source,"file.pdf");await writeFile(file,"one");await utimes(file,1,1);const j=job({stabilitySeconds:10});await x.engine.run(j,x.sourceProvider,x.targetProvider);
-  now=5000;await writeFile(file,"changed-size");await utimes(file,2,2);await x.engine.run(j,x.sourceProvider,x.targetProvider);expect((await x.store.load(jobId)).pending?.["file.pdf"].observedAt).toBe(5000);
-  now=11000;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(0);now=16000;expect((await x.engine.run(j,x.sourceProvider,x.targetProvider)).copied).toBe(1);
+ it("previews immediately even with legacy stability seconds",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"file.pdf"),"preview");
+  const result=await x.engine.run(job({stabilitySeconds:60,dryRun:true}),x.sourceProvider,x.targetProvider);
+  expect(result).toMatchObject({copied:1,stabilityDeferred:0});await expect(stat(path.join(x.target,"file.pdf"))).rejects.toMatchObject({code:"ENOENT"});
+ });
+ it("does not commit an incomplete transfer when source changes during reading",async()=>{
+  const x=await setup();const file=path.join(x.source,"file.pdf");await writeFile(file,"original");
+  const source=Object.create(x.sourceProvider) as LocalStorageProvider;source.createReadStream=async()=>Readable.from((async function*(){yield Buffer.from("original");await writeFile(file,"changed during transfer")})());
+  await expect(x.engine.run(job({stabilitySeconds:0}),source,x.targetProvider)).rejects.toThrow("Source changed during transfer");
+  await expect(stat(path.join(x.target,"file.pdf"))).rejects.toMatchObject({code:"ENOENT"});expect(await readFile(file,"utf8")).toBe("changed during transfer");
  });
  it("deletes only in-scope orphan files in mirror mode",async()=>{
   const x=await setup();await writeFile(path.join(x.source,"a.pdf"),"source");for(const [name,data] of [["a.pdf","old"],["wichtig.xlsx","keep"],["private.pdf","keep"],["old.pdf","delete"]])await writeFile(path.join(x.target,name),data);
