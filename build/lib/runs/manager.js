@@ -3,10 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RunManager = void 0;
+exports.RunManager = exports.runContext = void 0;
 const node_path_1 = __importDefault(require("node:path"));
 const promises_1 = require("node:fs/promises");
 const node_crypto_1 = require("node:crypto");
+const node_async_hooks_1 = require("node:async_hooks");
+exports.runContext = new node_async_hooks_1.AsyncLocalStorage();
 /** Serializes invocations per job and owns their complete, persistent lifecycle. */
 class RunManager {
     root;
@@ -65,7 +67,7 @@ class RunManager {
         this.finish(record, "cancelled");
         return;
     } record.status = "running"; record.startedAt = Date.now(); await this.persist(); try {
-        const result = await invocation.execute(record.runId);
+        const result = await exports.runContext.run(record, () => invocation.execute(record.runId));
         record.summary = result.summary;
         if (result.items) {
             this.details.set(record.runId, { runId: record.runId, items: result.items, total: result.total ?? result.items.length });
