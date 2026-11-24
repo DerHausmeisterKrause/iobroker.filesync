@@ -28,6 +28,7 @@ export class SyncEngine{
   const checkpoint=async(force=false)=>{if(!dryRun&&(force||dirty>=this.checkpointSize)){await this.store.save(job.id,snapshot);dirty=0}};
   try{
    await source.connect();await target.connect();
+   if(job.sourceLocationId===job.targetLocationId){const a=source.normalizePath(job.sourcePath),b=target.normalizePath(job.targetPath);if(!a||!b||a===b||a.startsWith(`${b}/`)||b.startsWith(`${a}/`))throw new Error("Source and target overlap")}
    const files=(await scan(source,job.sourcePath,job.recursive)).filter(f=>matches(f,job.filters));snapshot.pending??={};result.scanned=files.length;
    const sourceSet=new Set(files.map(f=>f.path));
    for(const file of files){
@@ -46,14 +47,21 @@ export class SyncEngine{
       if(canonicalExists&&job.conflict==="never")return {skipped:true,final:canonical,kind:"copy" as const};
       if(canonicalExists&&job.conflict==="error")throw new Error(`Target conflict: ${file.path}`);
       kind=canonicalExists&&job.conflict==="version"?"version":canonicalExists?"overwrite":"copy";final=kind==="version"?`${canonical}.${this.now()}`:canonical;
-      await target.mkdir(path.posix.dirname(final));await retry(async()=>{const temp=path.posix.join(path.posix.dirname(final),`.${path.posix.basename(final)}.filesync-${randomUUID()}.tmp`);try{const before=await source.stat(src);await pipeline(await source.createReadStream(src),await target.createWriteStream(temp));const written=await target.stat(temp);const after=await source.stat(src);if(written.size!==before.size||changed(before,after))throw new Error("Source changed during transfer or size verification failed");if(job.hashCheck&&await hash(source,src)!==await hash(target,temp))throw new Error("SHA-256 verification failed");await target.replace(temp,final);if(job.preserveTimestamps&&target.setMtime)await target.setMtime(final,before.mtimeMs)}catch(e){await target.remove(temp).catch(()=>undefined);throw e}},job.retry);return {skipped:false,final,kind}
+      await target.mkdir(path.posix.dirname(final));await retry(async()=>{const temp=path.posix.join(path.posix.dirname(final),`.${path.posix.basename(final)}.filesync-${randomUUID()}.tmp`);try{const before=await source.stat(src);if(before.type!=="file"||(job.mode==="move"&&changed(before,file)))throw new Error("Source changed since scan");await pipeline(await source.createReadStream(src),await target.createWriteStream(temp));const written=await target.stat(temp);const after=await source.stat(src);if(written.type!=="file"||after.type!=="file"||written.size!==before.size||changed(before,after))throw new Error("Source changed during transfer or size verification failed");if((job.hashCheck||job.mode==="move")&&await hash(source,src)!==await hash(target,temp))throw new Error("SHA-256 verification failed");await target.replace(temp,final);if(job.preserveTimestamps&&target.setMtime)await target.setMtime(final,before.mtimeMs)}catch(e){await target.remove(temp).catch(()=>undefined);throw e}},job.retry);return {skipped:false,final,kind}
      }));
      if(outcome.skipped){action(file.path,"skip");result.skipped++;continue}final=outcome.final;kind=outcome.kind;
-     snapshot.files[file.path]={...file,syncedAt:this.now(),hash:job.hashCheck?await hash(source,src):undefined,targetPath:final};dirty++;await checkpoint();if(job.mode==="move")await source.remove(src);
+     snapshot.files[file.path]={...file,syncedAt:this.now(),hash:job.hashCheck?await hash(source,src):undefined,targetPath:final};dirty++;await checkpoint();if(job.mode==="move")await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(canonical)}`,async()=>{
+      const before=await source.stat(src),destination=await target.stat(final);
+      if(before.type!=="file"||destination.type!=="file"||changed(before,file)||before.size!==destination.size)throw new Error("Move aborted: source or destination changed");
+      if(await hash(source,src)!==await hash(target,final))throw new Error("Move aborted: destination content differs");
+      const after=await source.stat(src),lastTarget=await target.stat(final);
+      if(after.type!=="file"||lastTarget.type!=="file"||changed(after,before)||changed(lastTarget,destination))throw new Error("Move aborted: source or destination changed");
+      await source.remove(src);
+     });
     }
     action(file.path,kind);result.copied++;if(kind==="overwrite")result.overwritten++;if(kind==="version")result.versioned++;if(job.mode==="move")result.moved++;result.bytes+=file.size;
    }
-   if(job.mode==="mirror"&&job.mirrorDeleteConfirmed){for(const targetFile of (await scan(target,job.targetPath,job.recursive)).filter(file=>matches(file,job.filters))){if(!sourceSet.has(targetFile.path)){const removePath=path.posix.join(job.targetPath,targetFile.path);let removed=dryRun;if(!dryRun)removed=await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(removePath)}`,async()=>{const current=await target.statOrUndefined(removePath);if(!current||current.size!==targetFile.size||current.mtimeMs!==targetFile.mtimeMs)return false;await target.remove(removePath);return true});if(removed){action(targetFile.path,"delete");result.deleted++}}}}
+   if(job.mode==="mirror"&&job.mirrorDeleteConfirmed){for(const targetFile of (await scan(target,job.targetPath,job.recursive)).filter(file=>matches(file,job.filters))){if(!sourceSet.has(targetFile.path)){const removePath=path.posix.join(job.targetPath,targetFile.path);if(await source.statOrUndefined(path.posix.join(job.sourcePath,targetFile.path)))continue;let removed=dryRun;if(!dryRun)removed=await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(removePath)}`,async()=>{const current=await target.statOrUndefined(removePath);if(!current||current.type!=="file"||current.size!==targetFile.size||current.mtimeMs!==targetFile.mtimeMs)return false;if(await source.statOrUndefined(path.posix.join(job.sourcePath,targetFile.path)))return false;await target.remove(removePath);return true});if(removed){action(targetFile.path,"delete");result.deleted++}}}}
    if(!dryRun){snapshot={version:1,files:Object.fromEntries(Object.entries(snapshot.files).filter(([p])=>sourceSet.has(p))),pending:Object.fromEntries(Object.entries(snapshot.pending).filter(([p])=>sourceSet.has(p)))};dirty++;await checkpoint(true)}
    return result;
   }catch(error){if(!dryRun&&dirty>0){try{await checkpoint(true)}catch(checkpointError){this.checkpointFailed(checkpointError)}}throw error
