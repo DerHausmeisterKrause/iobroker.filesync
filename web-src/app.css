@@ -11,3 +11,25 @@
 .help-popover{position:fixed;z-index:1000;width:min(20rem,calc(100vw - 20px));padding:.65rem .75rem;border-radius:7px;background:#18212f;color:white;font-size:.8rem;font-weight:400;line-height:1.35;box-shadow:0 5px 18px #0005;pointer-events:none;white-space:normal}
 .info:focus-visible{outline:3px solid #8fc7ff;outline-offset:2px}.groups .check{display:flex;width:max-content}.groups .check input{flex:0 0 auto}
 @media(max-width:700px){#toasts{right:.75rem;bottom:.75rem;left:.75rem;max-width:none}.modal{padding:.75rem;align-items:start}.modal .card{width:100%;max-height:calc(100dvh - 1.5rem);padding:1.2rem}.toolbar{align-items:flex-start}.toolbar h1,.toolbar h2{flex:1 1 12rem;margin-top:0}.toolbar>button{margin-left:auto}.list{display:block;overflow-x:auto}}
+
+/* Run history and diagnostics */
+.run-list tr.run-success,.run-banner.run-success{background:#edf8ef;color:#204d32}
+.run-list tr.run-error,.run-banner.run-error{background:#fff0ef;color:#802d28}
+.run-list tr.run-running,.run-banner.run-running{background:#eef5ff;color:#24528a}
+.run-list tr.run-queued,.run-banner.run-queued{background:#fff8e7;color:#795414}
+.run-list tr.run-cancelled,.run-banner.run-cancelled{background:#f0f2f5;color:#526273}
+.run-status{font-weight:650}
+.run-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.8rem;align-items:end;margin-bottom:.75rem}
+.run-filters label{margin:0;font-size:.88rem}
+.run-filters input,.run-filters select{margin-top:.3rem;padding:.55rem}
+.run-banner{padding:.85rem 1rem;border-radius:8px;line-height:1.6}
+.run-meta{display:grid;grid-template-columns:minmax(90px,auto) minmax(0,1fr);gap:.35rem 1rem;font-size:.9rem}
+.run-meta dt{font-weight:650;color:#526273}
+.run-meta dd{margin:0;overflow-wrap:anywhere}
+.run-error{background:#fff0ef;border:1px solid #edc3c0;border-radius:8px;padding:.8rem;color:#802d28;margin:1rem 0}
+.run-error pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:.4rem 0 0}
+.run-live{padding:1rem;background:#eef5ff;border-radius:8px;margin:1rem 0}
+.run-live progress{display:block;width:100%;height:1rem;margin:.6rem 0;accent-color:#1976d2}
+.run-live p{overflow-wrap:anywhere;margin:.4rem 0}
+.run-panel .grid.compact{margin-bottom:1rem;border-radius:8px}
+.run-panel .list td{overflow-wrap:anywhere}
