@@ -14,6 +14,7 @@ export class DeliveryJournal{
  private healthy=true;
  constructor(root:string,warn:()=>void){this.file=path.join(root,"notification-history.json");this.warn=warn}
  async load(){try{const data:unknown=JSON.parse(await readFile(this.file,"utf8"));if(!Array.isArray(data))throw new Error("Invalid mail journal");for(const row of data){if(!Array.isArray(row)||typeof row[0]!=="string"||!row[1]||!Array.isArray(row[1].history)||!row[1].digestKeys)throw new Error("Invalid mail journal");const value=row[1] as UserJournal;this.users.set(row[0],{history:value.history.slice(-100),digestKeys:value.digestKeys})}}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT"){this.healthy=false;this.warn()}}}
+ hasDigest(userId:string,kind:string,key:string){return this.users.get(userId)?.digestKeys[kind]===key}
  history(userId:string){return [...(this.users.get(userId)?.history??[])].reverse()}
  private mutate<T>(operation:(next:Map<string,UserJournal>)=>T){
   const pending=this.queue.then(async()=>{if(!this.healthy)throw new Error("Mail history unavailable");const next=new Map([...this.users].map(([id,value])=>[id,{history:value.history.map(entry=>({...entry})),digestKeys:{...value.digestKeys}}] as const));const result=operation(next);await mkdir(path.dirname(this.file),{recursive:true});await writeFile(this.file+".tmp",JSON.stringify([...next]),{mode:0o600});await rename(this.file+".tmp",this.file);this.users=next;return result});
