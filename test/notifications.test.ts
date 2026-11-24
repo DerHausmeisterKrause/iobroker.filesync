@@ -64,7 +64,7 @@ describe("personal mail notifications",()=>{
   const runs=([{jobId:"job",status:"error",dryRun:false,finishedAt:new Date(2026,10,20,12).getTime()},{jobId:"job",status:"success",dryRun:false,finishedAt:new Date(2026,10,23,12).getTime()}] as unknown) as import("../src/lib/runs/manager").RunRecord[];
   await service.digest(runs,new Date(2026,10,23,9));expect(send.mock.calls[0][1].subject).toContain("Wochenbericht");expect(send.mock.calls[0][1].text).toContain("Fehlgeschlagen: 1");expect(send.mock.calls[0][1].text).toContain("Erfolgreich: 0");
  });
- it("records failed sends and shares a durable hourly cap across event types",async()=>{
+ it("records failed sends in the personal history",async()=>{
   const {service,send}=await setup();await service.save("alice",parsePreferences({...defaults(),email:"alice@example.org"}));send.mockRejectedValueOnce(new Error("SMTP unavailable"));
   expect(await service.testMail("alice")).toBe("error");expect(service.history("alice")[0].status).toBe("error");
  });
