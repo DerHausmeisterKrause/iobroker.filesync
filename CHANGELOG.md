@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.5 (2026-11-24)
+
+- Add central email adapter selection and enable switch in ioBroker Admin.
+- Add personal email addresses, event and job subscriptions, and cooldowns in the FileSync web UI.
+- Persist private preferences separately from static adapter configuration; enforce group visibility on delivery and exclude Dry Runs.
+- Limit mail attempts per user; never include raw paths, contents, or credentials.
+
 ## 0.2.4 (2026-11-24)
 
 - Add opt-in list/write/read/rename/delete access checks for the local, SMB and SFTP location base directory.
