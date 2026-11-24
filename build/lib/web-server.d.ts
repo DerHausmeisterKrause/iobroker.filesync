@@ -1,5 +1,8 @@
 import type { AdapterConfig, DataLocation, SecretRecord } from "./types";
+import type { Preferences } from "./notifications";
 export interface WebApi {
+    notificationPreferences?(userId:string):Preferences;
+    saveNotificationPreferences?(userId:string,pref:Preferences):Promise<Preferences>;
     config(): AdapterConfig;
     publicLocation(location: DataLocation): unknown;
     persistLocation(raw: unknown, secret?: SecretRecord): Promise<unknown>;
