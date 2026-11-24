@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.2": {
+        "en": "Fix TypeScript installation build",
+        "de": "TypeScript-Installationsfehler behoben"
+      },
       "0.2.1": {
         "en": "Version diagnostics and interrupted run recovery",
         "de": "Versionsdiagnose und Behandlung unterbrochener Runs"
