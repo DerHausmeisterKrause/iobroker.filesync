@@ -143,7 +143,7 @@ class SyncEngine {
                             progress.bytes = result.bytes;
                             progress.bytesPerSecond = 0;
                             const transferStarted = Date.now();
-                            await (0, promises_1.pipeline)(await source.createReadStream(src), new node_stream_1.Transform({ transform(chunk, _encoding, callback) { progress.fileBytes = (progress.fileBytes ?? 0) + chunk.length; progress.bytes = result.bytes + progress.fileBytes; progress.bytesPerSecond = progress.fileBytes / Math.max(0.001, (Date.now() - transferStarted) / 1000); callback(null, chunk); } }), await target.createWriteStream(temp));
+                            await (0, promises_1.pipeline)(await source.createReadStream(src), new node_stream_1.Transform({ transform(chunk, _encoding, callback) { const fileBytes = (progress.fileBytes ?? 0) + Buffer.byteLength(chunk); progress.fileBytes = fileBytes; progress.bytes = result.bytes + fileBytes; progress.bytesPerSecond = fileBytes / Math.max(0.001, (Date.now() - transferStarted) / 1000); callback(null, chunk); } }), await target.createWriteStream(temp));
                             progress.bytesPerSecond = 0;
                             const written = await target.stat(temp);
                             const after = await source.stat(src);
