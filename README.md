@@ -70,6 +70,10 @@ npm run test:package
 
 `npm run build` baut Backend und das nach `web-dist/` ausgelieferte Frontend; das npm-Paket enthält beide. Die CI prüft Node 20/22/24, wobei Node 22 die Integrations-Baseline ist.
 
+## Sofortige Synchronisation
+
+Seit 0.2.3 werden vorhandene Dateien ohne vorherige Stabilitätswartezeit verarbeitet, unabhängig von der alten Job-Einstellung. Dry Run bleibt schreibfrei. Änderungen während einer Übertragung werden weiterhin anhand der Dateimetadaten geprüft; Provider-Zugriffsfehler bleiben Fehler und werden nicht unterdrückt. Ein plattformübergreifender Nachweis, dass eine Datei von keinem anderen Programm geöffnet ist, ist nicht möglich.
+
 ## Sicherheitsgrenzen
 
 Lokale Pfad- und Symlink-Confinement, Streaming, Filter, Retry, Transfer-Limits, Dry-Run, atomare Snapshots und Run-History werden weiterverwendet. Mirror und Move sollten zunächst ausschließlich mit Testdaten und Preview geprüft werden. Das Legacy-Message-API kann intern vorerst bestehen, ist aber keine UI-Abhängigkeit.

@@ -8,7 +8,7 @@ import type {StorageProvider} from "../storage/provider";
 import {matches,changed} from "./filter";
 import {retry} from "../utils/retry";
 import type {PersistentStore} from "../persistence/store";
-import {stableSince,targetNeedsRepair} from "./reconciliation";
+import {targetNeedsRepair} from "./reconciliation";
 import {TargetPathLock} from "../jobs/path-lock";
 
 const MAX_RESULT_ITEMS=500;
@@ -33,7 +33,7 @@ export class SyncEngine{
   try{
    await source.connect();await target.connect();
    if(job.sourceLocationId===job.targetLocationId){const a=source.normalizePath(job.sourcePath),b=target.normalizePath(job.targetPath);if(!a||!b||a===b||a.startsWith(`${b}/`)||b.startsWith(`${a}/`))throw new Error("Source and target overlap")}
-   const files=(await scan(source,job.sourcePath,job.recursive)).filter(f=>matches(f,job.filters));snapshot.pending??={};result.scanned=files.length;progress.scanned=files.length;progress.phase="transfer";
+   const files=(await scan(source,job.sourcePath,job.recursive)).filter(f=>matches(f,job.filters));result.scanned=files.length;progress.scanned=files.length;progress.phase="transfer";
    const sourceSet=new Set(files.map(f=>f.path));
    for(const file of files){
     progress.currentFile=file.path;progress.fileSize=file.size;progress.fileBytes=0;progress.bytesPerSecond=0;
@@ -41,8 +41,6 @@ export class SyncEngine{
     const previousTarget=old?.targetPath??canonical;const previousTargetMeta=await target.statOrUndefined(previousTarget);const canonicalTargetMeta=previousTarget===canonical?previousTargetMeta:await target.statOrUndefined(canonical);let repair=targetNeedsRepair(file,previousTargetMeta);
     if(job.hashCheck&&!repair&&previousTargetMeta)repair=await hash(source,src)!==await hash(target,previousTarget);
     if(job.mode==="incremental"&&!changed(file,old)&&!repair){action(file.path,"skip");result.skipped++;continue}
-    if(job.stabilitySeconds>0){const pending=snapshot.pending[file.path];const unchanged=pending&&pending.size===file.size&&pending.mtimeMs===file.mtimeMs;const observedAt=unchanged?pending.observedAt:this.now();if(!stableSince(file,pending,job.stabilitySeconds*1000,this.now())){snapshot.pending[file.path]={size:file.size,mtimeMs:file.mtimeMs,observedAt};dirty++;await checkpoint();const remaining=Math.max(1,Math.ceil((observedAt+job.stabilitySeconds*1000-this.now())/1000));action(file.path,"wait-stable","Datei muss noch unverändert bleiben",remaining);result.stabilityDeferred++;continue}}
-    delete snapshot.pending[file.path];
     let canonicalExists=canonicalTargetMeta!==undefined,final=canonical,kind: "copy"|"overwrite"|"version"=canonicalExists&&job.conflict==="version"?"version":canonicalExists?"overwrite":"copy";
     if(dryRun){if(canonicalExists&&job.conflict==="never"){action(file.path,"skip","Wegen Konfliktregel übersprungen");result.skipped++;continue}if(canonicalExists&&job.conflict==="error")throw new Error(`Target conflict: ${file.path}`);if(kind==="version")final=`${canonical}.${this.now()}`}
     if(!dryRun){
@@ -68,7 +66,7 @@ export class SyncEngine{
    }
    progress.currentFile=undefined;progress.fileBytes=undefined;progress.fileSize=undefined;progress.bytesPerSecond=0;
    if(job.mode==="mirror"&&job.mirrorDeleteConfirmed){progress.phase="mirror";for(const targetFile of (await scan(target,job.targetPath,job.recursive)).filter(file=>matches(file,job.filters))){if(!sourceSet.has(targetFile.path)){const removePath=path.posix.join(job.targetPath,targetFile.path);if(await source.statOrUndefined(path.posix.join(job.sourcePath,targetFile.path)))continue;let removed=dryRun;if(!dryRun)removed=await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(removePath)}`,async()=>{const current=await target.statOrUndefined(removePath);if(!current||current.type!=="file"||current.size!==targetFile.size||current.mtimeMs!==targetFile.mtimeMs)return false;if(await source.statOrUndefined(path.posix.join(job.sourcePath,targetFile.path)))return false;await target.remove(removePath);return true});if(removed){action(targetFile.path,"delete");result.deleted++}}}}
-   if(!dryRun){snapshot={version:1,files:Object.fromEntries(Object.entries(snapshot.files).filter(([p])=>sourceSet.has(p))),pending:Object.fromEntries(Object.entries(snapshot.pending).filter(([p])=>sourceSet.has(p)))};dirty++;await checkpoint(true)}
+   if(!dryRun){snapshot={version:1,files:Object.fromEntries(Object.entries(snapshot.files).filter(([p])=>sourceSet.has(p))),pending:{}};dirty++;await checkpoint(true)}
    return result;
   }catch(error){if(!dryRun&&dirty>0){try{await checkpoint(true)}catch(checkpointError){this.checkpointFailed(checkpointError)}}throw error
   }finally{await Promise.allSettled([source.disconnect(),target.disconnect()])}

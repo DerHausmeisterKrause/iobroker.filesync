@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3 (2026-11-24)
+
+- Remove pre-transfer stability waiting for every trigger, including existing jobs with legacy stability settings.
+- Remove stability time from the job editor; retain historical run details and backward-compatible config fields.
+- Keep source metadata checks, temporary files and Move SHA-256 verification.
+
 ## 0.2.2 (2026-11-24)
 
 - Fix TS18048 in the streaming progress callback by deriving a numeric byte count before updating optional progress fields.
