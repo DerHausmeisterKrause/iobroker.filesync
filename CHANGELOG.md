@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.7 (2026-11-24)
+
+- Put quick installation and update instructions at the top of the README.
+- Use the approved FileSync icon in ioBroker Admin, README, web login, navigation, job/run lists and browser favicon.
+- Serve PNG assets with the correct content type and return 404 for missing PNG files.
+
 ## 0.2.6 (2026-11-24)
 
 - Add personal test mail, persistent history for the last 100 attempts per user and restart-safe hourly/test-mail limits.

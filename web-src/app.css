@@ -33,3 +33,12 @@
 .run-live p{overflow-wrap:anywhere;margin:.4rem 0}
 .run-panel .grid.compact{margin-bottom:1rem;border-radius:8px}
 .run-panel .list td{overflow-wrap:anywhere}
+
+/* FileSync branding: one shared raster asset for all surfaces. */
+.login-logo{display:block;width:96px;height:96px;object-fit:contain;margin:0 auto 1rem;border-radius:14px}
+.login .card h1{text-align:center;margin:.3rem 0}
+.login .card h1+p{text-align:center;color:#526273}
+.side h2.brand{display:flex;align-items:center;gap:.65rem;margin:0 0 1.25rem;font-size:1.35rem;white-space:nowrap}
+.brand img,.job-brand img{flex:none;object-fit:contain;background:white;border-radius:7px}
+.job-brand{display:inline-flex;align-items:center;gap:.45rem;vertical-align:middle}
+@media(max-width:700px){.side h2.brand{display:flex;margin:0 .5rem 0 0;align-self:center;flex:none}.brand img{width:32px;height:32px}.brand span{display:none}}
