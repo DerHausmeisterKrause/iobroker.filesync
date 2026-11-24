@@ -72,7 +72,6 @@ class SyncEngine {
                     throw new Error("Source and target overlap");
             }
             const files = (await scan(source, job.sourcePath, job.recursive)).filter(f => (0, filter_1.matches)(f, job.filters));
-            snapshot.pending ??= {};
             result.scanned = files.length;
             progress.scanned = files.length;
             progress.phase = "transfer";
@@ -96,21 +95,6 @@ class SyncEngine {
                     result.skipped++;
                     continue;
                 }
-                if (job.stabilitySeconds > 0) {
-                    const pending = snapshot.pending[file.path];
-                    const unchanged = pending && pending.size === file.size && pending.mtimeMs === file.mtimeMs;
-                    const observedAt = unchanged ? pending.observedAt : this.now();
-                    if (!(0, reconciliation_1.stableSince)(file, pending, job.stabilitySeconds * 1000, this.now())) {
-                        snapshot.pending[file.path] = { size: file.size, mtimeMs: file.mtimeMs, observedAt };
-                        dirty++;
-                        await checkpoint();
-                        const remaining = Math.max(1, Math.ceil((observedAt + job.stabilitySeconds * 1000 - this.now()) / 1000));
-                        action(file.path, "wait-stable", "Datei muss noch unverändert bleiben", remaining);
-                        result.stabilityDeferred++;
-                        continue;
-                    }
-                }
-                delete snapshot.pending[file.path];
                 let canonicalExists = canonicalTargetMeta !== undefined, final = canonical, kind = canonicalExists && job.conflict === "version" ? "version" : canonicalExists ? "overwrite" : "copy";
                 if (dryRun) {
                     if (canonicalExists && job.conflict === "never") {
@@ -223,7 +207,7 @@ class SyncEngine {
                 }
             }
             if (!dryRun) {
-                snapshot = { version: 1, files: Object.fromEntries(Object.entries(snapshot.files).filter(([p]) => sourceSet.has(p))), pending: Object.fromEntries(Object.entries(snapshot.pending).filter(([p]) => sourceSet.has(p))) };
+                snapshot = { version: 1, files: Object.fromEntries(Object.entries(snapshot.files).filter(([p]) => sourceSet.has(p))), pending: {} };
                 dirty++;
                 await checkpoint(true);
             }
