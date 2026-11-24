@@ -37,7 +37,14 @@ class RunManager {
         for (const item of data.slice(-this.detailRetention))
             this.details.set(item.runId, item);
     }
-    catch { /* optional detail history */ } }
+    catch { /* optional detail history */ } let recovered = false; for (const record of this.runs.values()) {
+        if (record.status === "queued" || record.status === "running") {
+            record.redactedError = "Run interrupted by adapter restart; review and start a new run manually";
+            this.finish(record, "cancelled");
+            recovered = true;
+        }
+    } if (recovered)
+        await this.persist(); }
     enqueue(jobId, source, dryRun, execute) {
         if (this.stopping)
             throw new Error("Adapter is stopping");
