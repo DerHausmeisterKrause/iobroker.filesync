@@ -103,7 +103,9 @@
       "certChained": ""
     },
     "webGroups": [],
-    "webUsers": []
+    "webUsers": [],
+    "emailEnabled": false,
+    "emailInstance": "email.0"
   },
   "encryptedNative": [
     "credentialVault"
