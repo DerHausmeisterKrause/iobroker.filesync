@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 (2026-11-24)
+
+- Fix TS18048 in the streaming progress callback by deriving a numeric byte count before updating optional progress fields.
+- Regenerate the committed runtime and source map.
+
 ## 0.2.1 (2026-11-24)
 
 - Show separate frontend and backend version labels and warn about mismatches.
