@@ -54,3 +54,14 @@ jobs:
           test -f node_modules/iobroker.filesync/web-dist/app.js
           test -f node_modules/iobroker.filesync/admin/jsonConfig.json
           node -e "const p=require.resolve('iobroker.filesync');if(!p.endsWith('build/main.js'))throw new Error(p)"
+
+  browser-smoke:
+    name: Browser smoke (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
