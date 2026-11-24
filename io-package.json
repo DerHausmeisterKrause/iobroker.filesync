@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.5",
+    "version": "0.2.6",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.6": {
+        "en": "Test mail, delivery history and daily/weekly reports",
+        "de": "Testmail, Versandhistorie und Tages-/Wochenberichte"
+      },
       "0.2.5": {
         "en": "Personal email notifications and central mail transport",
         "de": "Persönliche E-Mail-Benachrichtigungen und zentraler Mailversand"
