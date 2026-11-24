@@ -1,4 +1,4 @@
-const frontendVersion="0.2.1";
+const frontendVersion="0.2.2";
 let csrf="",me=null,page="dashboard",locations=[],jobs=[];const app=document.querySelector("#app");
 const newId=()=>globalThis.crypto?.randomUUID?.()||"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(Number(c)^globalThis.crypto.getRandomValues(new Uint8Array(1))[0]&(15>>Number(c)/4)).toString(16));
 const guiError=reason=>{const message=reason instanceof Error?reason.message:String(reason||"Unbekannter Fehler");console.error("FileSync GUI error",reason);toast(`GUI-Fehler: ${message}`,"error")};
