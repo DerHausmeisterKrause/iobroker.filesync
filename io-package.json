@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.5": {
+        "en": "Personal email notifications and central mail transport",
+        "de": "Persönliche E-Mail-Benachrichtigungen und zentraler Mailversand"
+      },
       "0.2.4": {
         "en": "Detailed access diagnostics and failure progress",
         "de": "Detaillierte Zugriffsprüfung und Fortschritt bei Fehlern"
