@@ -10,6 +10,7 @@ const node_https_1 = require("node:https");
 const promises_1 = require("node:fs/promises");
 const node_path_1 = __importDefault(require("node:path"));
 const zod_1 = require("zod");
+const notifications_1 = require("./notifications");
 const web_auth_1 = require("./web-auth");
 class ApiError extends Error {
     status;
@@ -99,6 +100,16 @@ class StandaloneWebServer {
         const p = this.principal(req);
         if (method !== "GET")
             this.csrf(req, p);
+  if(url.pathname==="/api/notifications/me"){
+   if(!this.api.notificationPreferences||!this.api.saveNotificationPreferences)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
+   const cfg=this.api.config(),available=cfg.emailEnabled===true&&/^email\.\d+$/.test(cfg.emailInstance??"");
+   const visibleJobs=cfg.jobs.filter(j=>this.can(p.user,j.groupIds));
+   if(method==="GET"){const pref=this.api.notificationPreferences(p.user.id);return this.json(res,200,{ok:true,data:{available,preferences:{...pref,jobIds:pref.jobIds.filter(id=>visibleJobs.some(j=>j.id===id))}}})}
+   if(method==="PUT"){let pref;try{pref=notifications_1.parsePreferences(await this.body(req))}catch{throw new ApiError(400,"INVALID_PREFERENCES","Ungültige E-Mail-Adresse oder Benachrichtigungseinstellungen")}
+    if(pref.jobIds.some(id=>!visibleJobs.some(j=>j.id===id)))throw new ApiError(403,"JOB_FORBIDDEN");
+    return this.json(res,200,{ok:true,data:{available,preferences:await this.api.saveNotificationPreferences(p.user.id,pref)}})}
+   throw new ApiError(405,"METHOD_NOT_ALLOWED","Method not allowed");
+  }
         if (url.pathname === "/api/auth/me" && method === "GET")
             return this.json(res, 200, { ok: true, data: { ...(0, web_auth_1.safeUser)(p.user, this.api.config().webGroups), csrfToken: p.session.csrf } });
         if (url.pathname === "/api/auth/logout" && method === "POST") {
