@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 (2026-11-24)
+
+- Show separate frontend and backend version labels and warn about mismatches.
+- Guard release version consistency and packaged run status colors.
+- Mark interrupted queued/running history records cancelled on startup, without automatic replay.
+- Offer explicit preview/restart for failed and cancelled runs using current job settings.
+
 ## 0.2.0 (2026-11-24)
 
 - Report live per-run source file counts, stream bytes, current file and average current-file rate.
