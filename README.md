@@ -41,6 +41,22 @@ SMB-/SFTP-Secrets liegen getrennt in `credentials.enc`. Der Inhalt wird mit der 
 
 Runtime-States: `info.connection`, `info.webServerRunning`, `info.webServerPort`, `info.webServerSecure`, `info.webServerUrl`, Job-/Queue-Zähler und bestehende Job-States. Keine Credentials werden in States geschrieben.
 
+## Update prüfen
+
+Auf dem Host der vorhandenen Instanz installieren (Standardpfad: /opt/iobroker). Ein konkreter GitHub-Commit vermeidet die Wiederverwendung eines unveränderten Branch-Installationsziels. Vorher die Instanz und ihr Datenverzeichnis sichern; nicht löschen oder neu anlegen.
+
+```sh
+cd /opt/iobroker
+iobroker stop filesync.0
+iobroker url https://github.com/DerHausmeisterKrause/iobroker.filesync/tarball/COMMIT --debug
+iobroker upload filesync
+iobroker start filesync.0
+node -p 'require("./node_modules/iobroker.filesync/package.json").version'
+grep -m1 frontendVersion node_modules/iobroker.filesync/web-dist/app.js
+```
+
+`COMMIT` durch den gewünschten vollständigen Merge-Commit ersetzen. Im Browser nach einem Reload müssen Frontend- und Backend-Version übereinstimmen. Die Run-Übersicht zeigt ab 0.1.2 Filter und farbige Statuszeilen. Bei einem Neustart werden unterbrochene Runs als abgebrochen markiert; sie werden nicht automatisch erneut gestartet. Ein manueller Neustart verwendet die aktuelle Job-Konfiguration.
+
 ## Entwicklung
 
 ```sh
