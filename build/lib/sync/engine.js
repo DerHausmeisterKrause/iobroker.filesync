@@ -7,6 +7,8 @@ exports.SyncEngine = void 0;
 const node_path_1 = __importDefault(require("node:path"));
 const node_crypto_1 = require("node:crypto");
 const promises_1 = require("node:stream/promises");
+const node_stream_1 = require("node:stream");
+const manager_1 = require("../runs/manager");
 const filter_1 = require("./filter");
 const retry_1 = require("../utils/retry");
 const reconciliation_1 = require("./reconciliation");
@@ -48,7 +50,11 @@ class SyncEngine {
     async run(job, source, target, dryRunOverride) {
         const dryRun = job.dryRun || dryRunOverride === true;
         const result = { copied: 0, overwritten: 0, versioned: 0, moved: 0, skipped: 0, stabilityDeferred: 0, failed: 0, deleted: 0, bytes: 0, scanned: 0, dryRun, totalActions: 0, resultTruncated: false, items: [] };
-        const action = (filePath, kind, detail, remainingSeconds) => { result.totalActions++; if (result.items.length < MAX_RESULT_ITEMS)
+        const record = manager_1.runContext.getStore(), progress = { phase: "scan", scanned: 0, processed: 0, bytes: 0, bytesPerSecond: 0 };
+        if (record)
+            record.progress = progress;
+        const action = (filePath, kind, detail, remainingSeconds) => { if (progress.phase === "transfer")
+            progress.processed++; result.totalActions++; if (result.items.length < MAX_RESULT_ITEMS)
             result.items.push({ path: filePath, action: kind, ...(detail ? { detail } : {}), ...(remainingSeconds !== undefined ? { remainingSeconds } : {}) });
         else
             result.resultTruncated = true; };
@@ -68,8 +74,14 @@ class SyncEngine {
             const files = (await scan(source, job.sourcePath, job.recursive)).filter(f => (0, filter_1.matches)(f, job.filters));
             snapshot.pending ??= {};
             result.scanned = files.length;
+            progress.scanned = files.length;
+            progress.phase = "transfer";
             const sourceSet = new Set(files.map(f => f.path));
             for (const file of files) {
+                progress.currentFile = file.path;
+                progress.fileSize = file.size;
+                progress.fileBytes = 0;
+                progress.bytesPerSecond = 0;
                 const old = snapshot.files[file.path];
                 const src = node_path_1.default.posix.join(job.sourcePath, file.path);
                 const canonical = node_path_1.default.posix.join(job.targetPath, file.path);
@@ -126,7 +138,13 @@ class SyncEngine {
                             const before = await source.stat(src);
                             if (before.type !== "file" || (job.mode === "move" && (0, filter_1.changed)(before, file)))
                                 throw new Error("Source changed since scan");
-                            await (0, promises_1.pipeline)(await source.createReadStream(src), await target.createWriteStream(temp));
+                            progress.fileSize = before.size;
+                            progress.fileBytes = 0;
+                            progress.bytes = result.bytes;
+                            progress.bytesPerSecond = 0;
+                            const transferStarted = Date.now();
+                            await (0, promises_1.pipeline)(await source.createReadStream(src), new node_stream_1.Transform({ transform(chunk, _encoding, callback) { progress.fileBytes = (progress.fileBytes ?? 0) + chunk.length; progress.bytes = result.bytes + progress.fileBytes; progress.bytesPerSecond = progress.fileBytes / Math.max(0.001, (Date.now() - transferStarted) / 1000); callback(null, chunk); } }), await target.createWriteStream(temp));
+                            progress.bytesPerSecond = 0;
                             const written = await target.stat(temp);
                             const after = await source.stat(src);
                             if (written.type !== "file" || after.type !== "file" || written.size !== before.size || (0, filter_1.changed)(before, after))
@@ -175,8 +193,18 @@ class SyncEngine {
                 if (job.mode === "move")
                     result.moved++;
                 result.bytes += file.size;
+                if (!dryRun)
+                    progress.bytes = result.bytes;
+                progress.fileBytes = undefined;
+                progress.fileSize = undefined;
+                progress.bytesPerSecond = 0;
             }
+            progress.currentFile = undefined;
+            progress.fileBytes = undefined;
+            progress.fileSize = undefined;
+            progress.bytesPerSecond = 0;
             if (job.mode === "mirror" && job.mirrorDeleteConfirmed) {
+                progress.phase = "mirror";
                 for (const targetFile of (await scan(target, job.targetPath, job.recursive)).filter(file => (0, filter_1.matches)(file, job.filters))) {
                     if (!sourceSet.has(targetFile.path)) {
                         const removePath = node_path_1.default.posix.join(job.targetPath, targetFile.path);
