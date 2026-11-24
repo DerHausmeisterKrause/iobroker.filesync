@@ -22,6 +22,7 @@ class NotificationService {
  queue=Promise.resolve();
  sent=new Map();
  journal;
+ digestRunning=false;
  config;
  send;
  warn;
@@ -45,6 +46,7 @@ class NotificationService {
   return this.journal.deliver(userId,"Testmail",mail.to,()=>this.send(instance,mail));
  }
  async digest(runs,now=new Date()){
+  if(this.digestRunning)return;this.digestRunning=true;try{
   const cfg=this.config(),instance=cfg.emailInstance??"";
   if(cfg.emailEnabled!==true||!/^email\.\d+$/.test(instance)||now.getHours()<8)return;
   for(const user of cfg.webUsers){
@@ -62,6 +64,7 @@ class NotificationService {
    const mail={to:pref.email,subject:"FileSync: "+event,text:[event,"Zeitraum (Serverzeit): "+start.toLocaleDateString("de-DE")+" bis "+end.toLocaleDateString("de-DE")+" (exklusiv)","Erfolgreich: "+counts[0],"Fehlgeschlagen: "+counts[1],"Abgebrochen: "+counts[2],"Auswertung der letzten maximal 500 gespeicherten Runs; ältere Runs können fehlen. Vorschauen sind ausgeschlossen."].join("\n")};
    try{await this.journal.deliver(user.id,event,mail.to,()=>this.send(instance,mail),{kind,key})}catch{this.warn()}
   }
+  }finally{this.digestRunning=false}
  }
  async notify(jobId,runId,success,wasFailed,warning=false){
   const cfg=this.config(),instance=cfg.emailInstance??"";
