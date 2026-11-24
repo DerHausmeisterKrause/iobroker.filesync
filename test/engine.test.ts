@@ -95,4 +95,41 @@ describe("SyncEngine",()=>{
   const results=await Promise.allSettled([x.engine.run(job({conflict:"error"}),x.sourceProvider,x.targetProvider),x.engine.run(job({id:"00000000-0000-4000-8000-000000000008",sourceLocationId:"00000000-0000-4000-8000-000000000009",conflict:"error"}),secondProvider,x.targetProvider)]);
   expect(results.filter(result=>result.status==="fulfilled")).toHaveLength(1);expect(results.filter(result=>result.status==="rejected")).toHaveLength(1);
  });
+
+ it("moves only when the final content matches, even without optional hashCheck",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"move.txt"),"original");
+  const result=await x.engine.run(job({mode:"move",hashCheck:false}),x.sourceProvider,x.targetProvider);
+  expect(result.moved).toBe(1);expect(await readFile(path.join(x.target,"move.txt"),"utf8")).toBe("original");await expect(stat(path.join(x.source,"move.txt"))).rejects.toMatchObject({code:"ENOENT"});
+ });
+ it("retains the source if the committed move destination has equal-size corruption",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"move.txt"),"right");
+  const target=Object.create(x.targetProvider) as LocalStorageProvider;
+  target.replace=async(a,b)=>{await x.targetProvider.replace(a,b);await writeFile(path.join(x.target,b),"wrong")};
+  await expect(x.engine.run(job({mode:"move",hashCheck:false}),x.sourceProvider,target)).rejects.toThrow("destination content differs");
+  expect(await readFile(path.join(x.source,"move.txt"),"utf8")).toBe("right");
+ });
+ it("retains a source changed after committing a move",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"move.txt"),"original");
+  const target=Object.create(x.targetProvider) as LocalStorageProvider;
+  target.replace=async(a,b)=>{await x.targetProvider.replace(a,b);await writeFile(path.join(x.source,"move.txt"),"changed content")};
+  await expect(x.engine.run(job({mode:"move"}),x.sourceProvider,target)).rejects.toThrow("Move aborted");
+  expect(await readFile(path.join(x.source,"move.txt"),"utf8")).toBe("changed content");
+ });
+ it("preserves a mirror target if its source appears after the source scan",async()=>{
+  const x=await setup();await writeFile(path.join(x.target,"late.txt"),"target");
+  const target=Object.create(x.targetProvider) as LocalStorageProvider;
+  target.list=async p=>{await writeFile(path.join(x.source,"late.txt"),"source");return x.targetProvider.list(p)};
+  const result=await x.engine.run(job({mode:"mirror",mirrorDeleteConfirmed:true}),x.sourceProvider,target);
+  expect(result.deleted).toBe(0);expect(await readFile(path.join(x.target,"late.txt"),"utf8")).toBe("target");
+ });
+ it("does not delete a mirror target when the source exists but falls outside the size filter",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"small.txt"),"x");await writeFile(path.join(x.target,"small.txt"),"keep me");
+  const result=await x.engine.run(job({mode:"mirror",mirrorDeleteConfirmed:true,filters:{include:[],exclude:[],minSize:2}}),x.sourceProvider,x.targetProvider);
+  expect(result.deleted).toBe(0);expect(await readFile(path.join(x.target,"small.txt"),"utf8")).toBe("keep me");
+ });
+ it("rejects an overlapping job within the same location before scanning",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"move.txt"),"keep");
+  await expect(x.engine.run(job({mode:"move",targetLocationId:sourceId,targetPath:"sub"}),x.sourceProvider,x.sourceProvider)).rejects.toThrow("Source and target overlap");
+  expect(await readFile(path.join(x.source,"move.txt"),"utf8")).toBe("keep");
+ });
 });

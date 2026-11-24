@@ -60,6 +60,11 @@ class SyncEngine {
         try {
             await source.connect();
             await target.connect();
+            if (job.sourceLocationId === job.targetLocationId) {
+                const a = source.normalizePath(job.sourcePath), b = target.normalizePath(job.targetPath);
+                if (!a || !b || a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`))
+                    throw new Error("Source and target overlap");
+            }
             const files = (await scan(source, job.sourcePath, job.recursive)).filter(f => (0, filter_1.matches)(f, job.filters));
             snapshot.pending ??= {};
             result.scanned = files.length;
@@ -119,12 +124,14 @@ class SyncEngine {
                         await target.mkdir(node_path_1.default.posix.dirname(final));
                         await (0, retry_1.retry)(async () => { const temp = node_path_1.default.posix.join(node_path_1.default.posix.dirname(final), `.${node_path_1.default.posix.basename(final)}.filesync-${(0, node_crypto_1.randomUUID)()}.tmp`); try {
                             const before = await source.stat(src);
+                            if (before.type !== "file" || (job.mode === "move" && (0, filter_1.changed)(before, file)))
+                                throw new Error("Source changed since scan");
                             await (0, promises_1.pipeline)(await source.createReadStream(src), await target.createWriteStream(temp));
                             const written = await target.stat(temp);
                             const after = await source.stat(src);
-                            if (written.size !== before.size || (0, filter_1.changed)(before, after))
+                            if (written.type !== "file" || after.type !== "file" || written.size !== before.size || (0, filter_1.changed)(before, after))
                                 throw new Error("Source changed during transfer or size verification failed");
-                            if (job.hashCheck && await hash(source, src) !== await hash(target, temp))
+                            if ((job.hashCheck || job.mode === "move") && await hash(source, src) !== await hash(target, temp))
                                 throw new Error("SHA-256 verification failed");
                             await target.replace(temp, final);
                             if (job.preserveTimestamps && target.setMtime)
@@ -147,7 +154,17 @@ class SyncEngine {
                     dirty++;
                     await checkpoint();
                     if (job.mode === "move")
-                        await source.remove(src);
+                        await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(canonical)}`, async () => {
+                            const before = await source.stat(src), destination = await target.stat(final);
+                            if (before.type !== "file" || destination.type !== "file" || (0, filter_1.changed)(before, file) || before.size !== destination.size)
+                                throw new Error("Move aborted: source or destination changed");
+                            if (await hash(source, src) !== await hash(target, final))
+                                throw new Error("Move aborted: destination content differs");
+                            const after = await source.stat(src), lastTarget = await target.stat(final);
+                            if (after.type !== "file" || lastTarget.type !== "file" || (0, filter_1.changed)(after, before) || (0, filter_1.changed)(lastTarget, destination))
+                                throw new Error("Move aborted: source or destination changed");
+                            await source.remove(src);
+                        });
                 }
                 action(file.path, kind);
                 result.copied++;
@@ -163,9 +180,12 @@ class SyncEngine {
                 for (const targetFile of (await scan(target, job.targetPath, job.recursive)).filter(file => (0, filter_1.matches)(file, job.filters))) {
                     if (!sourceSet.has(targetFile.path)) {
                         const removePath = node_path_1.default.posix.join(job.targetPath, targetFile.path);
+                        if (await source.statOrUndefined(node_path_1.default.posix.join(job.sourcePath, targetFile.path)))
+                            continue;
                         let removed = dryRun;
                         if (!dryRun)
-                            removed = await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(removePath)}`, async () => { const current = await target.statOrUndefined(removePath); if (!current || current.size !== targetFile.size || current.mtimeMs !== targetFile.mtimeMs)
+                            removed = await this.targetLock.run(`${job.targetLocationId}:${target.normalizePath(removePath)}`, async () => { const current = await target.statOrUndefined(removePath); if (!current || current.type !== "file" || current.size !== targetFile.size || current.mtimeMs !== targetFile.mtimeMs)
+                                return false; if (await source.statOrUndefined(node_path_1.default.posix.join(job.sourcePath, targetFile.path)))
                                 return false; await target.remove(removePath); return true; });
                         if (removed) {
                             action(targetFile.path, "delete");
