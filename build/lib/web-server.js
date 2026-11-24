@@ -213,10 +213,11 @@ class StandaloneWebServer {
             data = await (0, promises_1.readFile)(safe);
         }
         catch {
+            if (safe.endsWith(".png")) throw new ApiError(404,"NOT_FOUND","Not found");
             data = await (0, promises_1.readFile)(node_path_1.default.join(this.root, "index.html"));
         }
         this.headers(res);
-        res.setHeader("Content-Type", safe.endsWith(".js") ? "text/javascript; charset=utf-8" : safe.endsWith(".css") ? "text/css; charset=utf-8" : "text/html; charset=utf-8");
+        res.setHeader("Content-Type", safe.endsWith(".js") ? "text/javascript; charset=utf-8" : safe.endsWith(".css") ? "text/css; charset=utf-8" : safe.endsWith(".png") ? "image/png" : "text/html; charset=utf-8");
         res.setHeader("Cache-Control", "no-store");
         res.end(data);
     }

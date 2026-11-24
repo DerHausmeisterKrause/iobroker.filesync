@@ -1,20 +1,56 @@
 # ioBroker FileSync
 
+<img src="admin/filesync.png" alt="FileSync" width="96" height="96">
+
+## Installation
+
+**Über ioBroker Admin:** Adapter → Aus eigener URL installieren → folgende URL eintragen:
+
+```text
+https://github.com/DerHausmeisterKrause/iobroker.filesync
+```
+
+**Alternativ über die Konsole auf dem ioBroker-Host:**
+
+```bash
+iobroker url https://github.com/DerHausmeisterKrause/iobroker.filesync --debug
+```
+
+Falls noch keine Instanz existiert, einmalig `iobroker add filesync` ausführen oder die Instanz im Admin anlegen.
+
+Voraussetzungen: Node.js 22 (empfohlene Beta-Baseline; package.json erlaubt >= 20), js-controller >= 7.2 und Admin >= 7.9.
+
+**Ersteinrichtung:** In den Instanzeinstellungen einen aktiven Web-Administrator mit Passwort anlegen, Webserver aktivieren und speichern. Danach `http://IOBROKER-IP:8095` im Browser öffnen. HTTP nur in einem vertrauenswürdigen LAN verwenden, andernfalls HTTPS konfigurieren.
+
+## Update einer vorhandenen Instanz
+
+Vorher Konfiguration und Instance-Data-Verzeichnis sichern. Keine neue Instanz anlegen.
+
+```bash
+cd /opt/iobroker
+iobroker stop filesync.0 &&
+iobroker url https://github.com/DerHausmeisterKrause/iobroker.filesync --debug &&
+iobroker upload filesync &&
+iobroker start filesync.0
+```
+
+Falls ein älterer Stand wiederverwendet wird, die URL durch `https://github.com/DerHausmeisterKrause/iobroker.filesync/tarball/COMMIT` ersetzen (COMMIT = vollständiger gewünschter Merge-Commit). Nach dem Update die Weboberfläche mit Strg+F5 neu laden. Die installierte Version lässt sich mit `node -p 'require("/opt/iobroker/node_modules/iobroker.filesync/package.json").version'` prüfen. Bei einem fehlgeschlagenen Update den Installationsfehler beheben, bevor die Instanz wieder gestartet wird.
+
+## Was ist FileSync?
+
 FileSync ist ein ioBroker-Daemon für sichere Synchronisation zwischen lokalen Verzeichnissen, SMB2/3 und SFTP. Die Verwaltung ist eine **eigenständige, vom Adapter bereitgestellte Webanwendung** und benötigt weder einen Admin-iframe noch `sendTo`, Admin Socket oder Materialize.
 
-## Installation und erster realer Test
-
-Voraussetzung ist Node.js 22 (Beta-Baseline), js-controller >= 7.2 und Admin >= 7.9. Installation über **Admin → Adapter → Aus eigener URL installieren** mit `https://github.com/DerHausmeisterKrause/iobroker.filesync` und Branch `main`, danach eine Instanz anlegen.
+## Ersteinrichtung und Funktionstest
 
 1. In den Adaptereinstellungen Webserver aktivieren, Port `8095`, Protokoll HTTP und Bind-Adresse `0.0.0.0` wählen.
 2. Eine aktive Gruppe `Test` mit stabiler ID anlegen.
-3. Benutzer `marcel`, ein mindestens acht Zeichen langes neues Passwort, Gruppe `Test`, aktiv und **Web-Admin** anlegen. Ohne aktiven Web-Admin mit Passwort startet der Webserver absichtlich nicht.
+3. Einen eigenen Benutzer, ein mindestens acht Zeichen langes neues Passwort, Gruppe `Test`, aktiv und **Web-Admin** anlegen. Ohne aktiven Web-Admin mit Passwort startet der Webserver absichtlich nicht.
 4. Speichern und die Instanz neu starten. Das eingegebene Klartextpasswort wird unmittelbar mit Node.js `scrypt` und zufälligem Salt gehasht; nur Salt, Hash, Algorithmus und Parameter bleiben gespeichert.
 5. Auf dem ioBroker-Host Testdaten vorbereiten:
 
    ```sh
-   mkdir -p /tmp/filesync-source /tmp/filesync-target
-   echo "Hello FileSync" > /tmp/filesync-source/test.txt
+   sudo -u iobroker mkdir -p /tmp/filesync-source /tmp/filesync-target
+   sudo -u iobroker sh -c 'echo "Hello FileSync" > /tmp/filesync-source/test.txt'
    ```
 
 6. `http://IOBROKER-IP:8095` in einem neuen Browser-Tab öffnen und anmelden.

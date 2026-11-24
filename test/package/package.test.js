@@ -7,6 +7,18 @@ const pkg = require("../../package.json");
 tests.packageFiles(path.join(__dirname, "../.."));
 
 describe("committed runtime", () => {
+    it("ships the same FileSync icon for Admin, web source and distribution", () => {
+        const root = path.join(__dirname, "../..");
+        const icon = require("../../io-package.json").common.icon;
+        assert.equal(icon, "filesync.png");
+        const image = fs.readFileSync(path.join(root,"admin",icon));
+        assert.equal(image.subarray(0,8).toString("hex"),"89504e470d0a1a0a");
+        for (const dir of ["web-src","web-dist"]) {
+            assert.deepEqual(fs.readFileSync(path.join(root,dir,icon)),image);
+            assert.ok(fs.readFileSync(path.join(root,dir,"index.html"),"utf8").includes('href="/filesync.png"'));
+        }
+    });
+
     it("contains the package main directly after checkout", () => {
         assert.ok(fs.existsSync(path.join(__dirname, "../..", pkg.main)), `Missing package main: ${pkg.main}`);
     });

@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -20,12 +20,12 @@
     "compact": true,
     "connectionType": "local",
     "dataSource": "push",
-    "icon": "filesync.svg",
+    "icon": "filesync.png",
     "adminUI": {
       "config": "json"
     },
     "enabled": true,
-    "extIcon": "https://raw.githubusercontent.com/DerHausmeisterKrause/iobroker.filesync/main/admin/filesync.svg",
+    "extIcon": "https://raw.githubusercontent.com/DerHausmeisterKrause/iobroker.filesync/main/admin/filesync.png",
     "keywords": [
       "files",
       "sync",
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.7": {
+        "en": "FileSync logo and quick installation guide",
+        "de": "FileSync-Logo und Schnellinstallation"
+      },
       "0.2.6": {
         "en": "Test mail, delivery history and daily/weekly reports",
         "de": "Testmail, Versandhistorie und Tages-/Wochenberichte"
