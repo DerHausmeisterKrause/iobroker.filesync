@@ -4,6 +4,7 @@ export interface DeliveryEntry {id:string;at:number;event:string;to:string;statu
 export declare class DeliveryJournal {
  constructor(root:string,warn:()=>void);
  load():Promise<void>;
+ hasDigest(userId:string,kind:string,key:string):boolean;
  history(userId:string):DeliveryEntry[];
  deliver(userId:string,event:string,to:string,send:()=>Promise<void>,digest?:{kind:string;key:string}):Promise<DeliveryResult>;
 }
