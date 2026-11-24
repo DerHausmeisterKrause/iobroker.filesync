@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 (2026-11-24)
+
+- Color-code run history by status and filter by status, job, dry run and search.
+- Refresh run history automatically and expand run details with timing, error messages and action filtering.
+- Show an indeterminate running indicator until real progress telemetry is available.
+- Fix help dialog initialization.
+
 ## 0.1.1 (2026-11-24)
 
 - Require SHA-256 verification for Move, including the committed destination before deleting the source.
