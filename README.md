@@ -70,6 +70,10 @@ npm run test:package
 
 `npm run build` baut Backend und das nach `web-dist/` ausgelieferte Frontend; das npm-Paket enthält beide. Die CI prüft Node 20/22/24, wobei Node 22 die Integrations-Baseline ist.
 
+## Zugriffsprüfung
+
+Der Button **Verbindung testen** prüft ab 0.2.4 den Basisordner. Bei beschreibbaren Datenorten wird eine eigene temporäre Datei geschrieben, zurückgelesen, umbenannt und gelöscht. Die Ergebnisse werden je Schritt angezeigt. Bei einem als nur lesbar konfigurierten Datenort wird lediglich das Auflisten des Ordners geprüft. Der Test garantiert keine Rechte in Unterordnern oder auf bestehende Dateien. Kann eine Testdatei nicht entfernt werden, wird dies ausdrücklich gemeldet. Hintergrund-Healthchecks bleiben unverändert und führen keinen Schreibtest aus.
+
 ## Sofortige Synchronisation
 
 Seit 0.2.3 werden vorhandene Dateien ohne vorherige Stabilitätswartezeit verarbeitet, unabhängig von der alten Job-Einstellung. Dry Run bleibt schreibfrei. Änderungen während einer Übertragung werden weiterhin anhand der Dateimetadaten geprüft; Provider-Zugriffsfehler bleiben Fehler und werden nicht unterdrückt. Ein plattformübergreifender Nachweis, dass eine Datei von keinem anderen Programm geöffnet ist, ist nicht möglich.

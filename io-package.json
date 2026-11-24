@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.4": {
+        "en": "Detailed access diagnostics and failure progress",
+        "de": "Detaillierte Zugriffsprüfung und Fortschritt bei Fehlern"
+      },
       "0.2.3": {
         "en": "Immediate synchronization without stability delay",
         "de": "Sofortige Synchronisation ohne Stabilitätswartezeit"

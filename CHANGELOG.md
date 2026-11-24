@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4 (2026-11-24)
+
+- Add opt-in list/write/read/rename/delete access checks for the local, SMB and SFTP location base directory.
+- Keep background health checks unchanged and skip writes for read-only locations.
+- Show actionable access error hints, probe cleanup warnings and recorded progress for failed runs.
+
 ## 0.2.3 (2026-11-24)
 
 - Remove pre-transfer stability waiting for every trigger, including existing jobs with legacy stability settings.
