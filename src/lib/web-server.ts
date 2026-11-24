@@ -7,7 +7,9 @@ import { z, ZodError } from "zod";
 import type { AdapterConfig, DataLocation, SecretRecord, WebUser } from "./types";
 import { SessionStore, safeUser, verifyPassword } from "./web-auth";
 
+import {parsePreferences,type Preferences} from "./notifications";
 export interface WebApi {
+ notificationPreferences?(userId:string):Preferences; saveNotificationPreferences?(userId:string,pref:Preferences):Promise<Preferences>;
  config():AdapterConfig; publicLocation(location:DataLocation):unknown; persistLocation(raw:unknown,secret?:SecretRecord):Promise<unknown>; deleteLocation(id:string):Promise<void>;
  persistJob(raw:unknown):Promise<unknown>; deleteJob(id:string):Promise<void>; testLocation(id:string,write:boolean):Promise<unknown>; browseLocation(id:string,p:string,offset:number,limit:number):Promise<unknown>;
  startRun(id:string,preview:boolean):unknown; run(id:string):unknown; runs(limit:number):unknown[]; runItems(id:string,offset:number,limit:number):unknown; status():unknown;
@@ -40,6 +42,16 @@ export class StandaloneWebServer{
  private async login(req:IncomingMessage,res:ServerResponse){const body=z.object({username:z.string().min(1).max(128),password:z.string().min(1).max(1024)}).parse(await this.body(req));const key=`${req.socket.remoteAddress??"unknown"}|${body.username.toLocaleLowerCase()}`,failure=this.failures.get(key);if(failure&&failure.blockedUntil>Date.now())throw new ApiError(429,"LOGIN_RATE_LIMITED","Too many login attempts; try again later");const user=this.api.config().webUsers.find(x=>x.username.toLocaleLowerCase()===body.username.toLocaleLowerCase());if(!user?.enabled||!await verifyPassword(body.password,user.passwordHash)){const count=(failure?.count??0)+1;this.failures.set(key,{count,blockedUntil:count>=5?Date.now()+Math.min(300_000,2**(count-5)*10_000):0});throw new ApiError(401,"INVALID_CREDENTIALS","Benutzername oder Passwort falsch")}this.failures.delete(key);this.sessions.delete(this.cookie(req));const session=this.sessions.create(user.id);res.setHeader("Set-Cookie",`filesync_session=${session.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor((session.expiresAt-Date.now())/1000)}${this.secure?"; Secure":""}`);this.json(res,200,{ok:true,data:{user:safeUser(user,this.api.config().webGroups),csrfToken:session.csrf}})}
  private runVisible(user:WebUser,record:any){if(user.admin)return true;const job=this.api.config().jobs.find(x=>x.id===record?.jobId);return Boolean(job&&this.can(user,job.groupIds))}
  private async apiRequest(req:IncomingMessage,res:ServerResponse,url:URL){const method=req.method??"GET",parts=url.pathname.split("/").filter(Boolean);if(url.pathname==="/api/auth/login"&&method==="POST"){await this.login(req,res);return}const p=this.principal(req);if(method!=="GET")this.csrf(req,p);
+  if(url.pathname==="/api/notifications/me"){
+   if(!this.api.notificationPreferences||!this.api.saveNotificationPreferences)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
+   const cfg=this.api.config(),available=cfg.emailEnabled===true&&/^email\.\d+$/.test(cfg.emailInstance??"");
+   const visibleJobs=cfg.jobs.filter(j=>this.can(p.user,j.groupIds));
+   if(method==="GET"){const pref=this.api.notificationPreferences(p.user.id);return this.json(res,200,{ok:true,data:{available,preferences:{...pref,jobIds:pref.jobIds.filter(id=>visibleJobs.some(j=>j.id===id))}}})}
+   if(method==="PUT"){let pref;try{pref=parsePreferences(await this.body(req))}catch{throw new ApiError(400,"INVALID_PREFERENCES","Ungültige E-Mail-Adresse oder Benachrichtigungseinstellungen")}
+    if(pref.jobIds.some(id=>!visibleJobs.some(j=>j.id===id)))throw new ApiError(403,"JOB_FORBIDDEN");
+    return this.json(res,200,{ok:true,data:{available,preferences:await this.api.saveNotificationPreferences(p.user.id,pref)}})}
+   throw new ApiError(405,"METHOD_NOT_ALLOWED","Method not allowed");
+  }
   if(url.pathname==="/api/auth/me"&&method==="GET")return this.json(res,200,{ok:true,data:{...safeUser(p.user,this.api.config().webGroups),csrfToken:p.session.csrf}});
   if(url.pathname==="/api/auth/logout"&&method==="POST"){this.sessions.delete(p.session.id);res.setHeader("Set-Cookie",`filesync_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${this.secure?"; Secure":""}`);return this.json(res,200,{ok:true,data:true})}
   if(url.pathname==="/api/status"&&method==="GET"){const visibleJobs=this.api.config().jobs.filter(x=>this.can(p.user,x.groupIds)),visibleRuns=this.api.runs(500).filter(x=>this.runVisible(p.user,x)) as any[];const status=this.api.status() as Record<string,unknown>;return this.json(res,200,{ok:true,data:{...status,locations:this.api.config().locations.filter(x=>this.can(p.user,x.groupIds)).length,jobs:visibleJobs.length,activeJobs:visibleRuns.filter(x=>x.status==="running").length,failedJobs:visibleRuns.filter(x=>x.status==="error").length,queue:visibleRuns.filter(x=>x.status==="queued").length}})}
