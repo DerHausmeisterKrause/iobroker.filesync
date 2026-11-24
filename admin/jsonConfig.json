@@ -1,142 +1,176 @@
 {
-  "type": "panel",
+  "type": "tabs",
   "items": {
-    "webHeader": {
-      "type": "header",
-      "text": "Standalone FileSync Webserver",
-      "size": 2
-    },
-    "web.enabled": {
-      "type": "checkbox",
-      "label": "Webserver aktiviert",
-      "default": true
-    },
-    "web.port": {
-      "type": "number",
-      "label": "Port",
-      "min": 1,
-      "max": 65535,
-      "default": 8095
-    },
-    "web.secure": {
-      "type": "checkbox",
-      "label": "HTTPS verwenden",
-      "default": false
-    },
-    "web.bind": {
-      "type": "text",
-      "label": "Listen-Adresse",
-      "default": "0.0.0.0"
-    },
-    "web.sessionTtlMinutes": {
-      "type": "number",
-      "label": "Session Timeout (Minuten)",
-      "min": 5,
-      "max": 10080,
-      "default": 480
-    },
-    "web.certificates": {
-      "type": "certificates",
-      "label": "ioBroker TLS-Zertifikate",
-      "hidden": "!data.web.secure"
-    },
-    "httpWarning": {
-      "type": "staticText",
-      "text": "HTTP überträgt Anmeldedaten unverschlüsselt. Nur in einem vertrauenswürdigen LAN verwenden.",
-      "hidden": "data.web.secure"
-    },
-    "groupHeader": {
-      "type": "header",
-      "text": "Gruppen",
-      "size": 2,
-      "newLine": true
-    },
-    "webGroups": {
-      "type": "table",
-      "label": "Gruppen",
-      "items": [
-        {
-          "type": "text",
-          "attr": "id",
-          "title": "Stabile ID",
-          "default": ""
+    "general": {
+      "type": "panel",
+      "label": "Allgemein",
+      "items": {
+        "webHeader": {
+          "type": "header",
+          "text": "Standalone FileSync Webserver",
+          "size": 2
         },
-        {
-          "type": "text",
-          "attr": "name",
-          "title": "Name"
-        },
-        {
-          "type": "text",
-          "attr": "description",
-          "title": "Beschreibung"
-        },
-        {
+        "web.enabled": {
           "type": "checkbox",
-          "attr": "enabled",
-          "title": "Aktiv",
-          "default": true
-        }
-      ]
-    },
-    "userHeader": {
-      "type": "header",
-      "text": "Benutzer",
-      "size": 2,
-      "newLine": true
-    },
-    "adminRequired": {
-      "type": "staticText",
-      "text": "Mindestens ein aktiver Web-Administrator mit gesetztem Passwort ist erforderlich."
-    },
-    "webUsers": {
-      "type": "table",
-      "label": "Benutzer",
-      "items": [
-        {
-          "type": "text",
-          "attr": "id",
-          "title": "Stabile ID"
-        },
-        {
-          "type": "text",
-          "attr": "username",
-          "title": "Benutzername"
-        },
-        {
-          "type": "text",
-          "attr": "displayName",
-          "title": "Anzeigename"
-        },
-        {
-          "type": "checkbox",
-          "attr": "enabled",
-          "title": "Aktiv",
+          "label": "Webserver aktiviert",
           "default": true
         },
-        {
-          "type": "text",
-          "attr": "passwordHash",
-          "title": "Password hash",
-          "hidden": true
+        "web.port": {
+          "type": "number",
+          "label": "Port",
+          "min": 1,
+          "max": 65535,
+          "default": 8095
         },
-        {
-          "type": "password",
-          "attr": "newPassword",
-          "title": "Neues Passwort"
-        },
-        {
-          "type": "chips",
-          "attr": "groupIds",
-          "title": "Gruppen-IDs"
-        },
-        {
+        "web.secure": {
           "type": "checkbox",
-          "attr": "admin",
-          "title": "Web-Admin",
+          "label": "HTTPS verwenden",
           "default": false
+        },
+        "web.bind": {
+          "type": "text",
+          "label": "Listen-Adresse",
+          "default": "0.0.0.0"
+        },
+        "web.sessionTtlMinutes": {
+          "type": "number",
+          "label": "Session Timeout (Minuten)",
+          "min": 5,
+          "max": 10080,
+          "default": 480
+        },
+        "web.certificates": {
+          "type": "certificates",
+          "label": "ioBroker TLS-Zertifikate",
+          "hidden": "!data.web.secure"
+        },
+        "httpWarning": {
+          "type": "staticText",
+          "text": "HTTP überträgt Anmeldedaten unverschlüsselt. Nur in einem vertrauenswürdigen LAN verwenden.",
+          "hidden": "data.web.secure"
+        },
+        "groupHeader": {
+          "type": "header",
+          "text": "Gruppen",
+          "size": 2,
+          "newLine": true
+        },
+        "webGroups": {
+          "type": "table",
+          "label": "Gruppen",
+          "items": [
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Stabile ID",
+              "default": ""
+            },
+            {
+              "type": "text",
+              "attr": "name",
+              "title": "Name"
+            },
+            {
+              "type": "text",
+              "attr": "description",
+              "title": "Beschreibung"
+            },
+            {
+              "type": "checkbox",
+              "attr": "enabled",
+              "title": "Aktiv",
+              "default": true
+            }
+          ]
+        },
+        "userHeader": {
+          "type": "header",
+          "text": "Benutzer",
+          "size": 2,
+          "newLine": true
+        },
+        "adminRequired": {
+          "type": "staticText",
+          "text": "Mindestens ein aktiver Web-Administrator mit gesetztem Passwort ist erforderlich."
+        },
+        "webUsers": {
+          "type": "table",
+          "label": "Benutzer",
+          "items": [
+            {
+              "type": "text",
+              "attr": "id",
+              "title": "Stabile ID"
+            },
+            {
+              "type": "text",
+              "attr": "username",
+              "title": "Benutzername"
+            },
+            {
+              "type": "text",
+              "attr": "displayName",
+              "title": "Anzeigename"
+            },
+            {
+              "type": "checkbox",
+              "attr": "enabled",
+              "title": "Aktiv",
+              "default": true
+            },
+            {
+              "type": "text",
+              "attr": "passwordHash",
+              "title": "Password hash",
+              "hidden": true
+            },
+            {
+              "type": "password",
+              "attr": "newPassword",
+              "title": "Neues Passwort"
+            },
+            {
+              "type": "chips",
+              "attr": "groupIds",
+              "title": "Gruppen-IDs"
+            },
+            {
+              "type": "checkbox",
+              "attr": "admin",
+              "title": "Web-Admin",
+              "default": false
+            }
+          ]
         }
-      ]
+      }
+    },
+    "mail": {
+      "type": "panel",
+      "label": "Benachrichtigungen",
+      "items": {
+        "emailHeader": {
+          "type": "header",
+          "text": "E-Mail-Versand",
+          "size": 2
+        },
+        "emailEnabled": {
+          "type": "checkbox",
+          "label": "E-Mail-Benachrichtigungen aktivieren",
+          "default": false
+        },
+        "emailInstance": {
+          "type": "instance",
+          "adapter": "email",
+          "onlyEnabled": true,
+          "label": "E-Mail-Adapter-Instanz",
+          "default": "email.0",
+          "disabled": "!data.emailEnabled"
+        },
+        "emailHelp": {
+          "type": "staticText",
+          "text": "SMTP-Server, Absender und Zugangsdaten im ausgewählten E-Mail-Adapter konfigurieren. Benutzer verwalten Empfänger und Ereignisse selbst in FileSync. Nur für vertrauenswürdige Benutzer aktivieren."
+        }
+      }
     }
   }
 }
