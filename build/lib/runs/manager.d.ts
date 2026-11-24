@@ -1,5 +1,17 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 export type RunSource = "manual" | "preview" | "schedule" | "change" | "state" | "reconciliation";
 export type RunStatus = "queued" | "running" | "success" | "error" | "cancelled";
+export interface RunProgress {
+    phase: "scan" | "transfer" | "mirror";
+    scanned: number;
+    processed: number;
+    bytes: number;
+    bytesPerSecond: number;
+    currentFile?: string;
+    fileBytes?: number;
+    fileSize?: number;
+}
+export declare const runContext: AsyncLocalStorage<RunRecord>;
 export interface RunRecord {
     runId: string;
     jobId: string;
@@ -11,6 +23,7 @@ export interface RunRecord {
     finishedAt?: number;
     summary?: unknown;
     redactedError?: string;
+    progress?: RunProgress;
 }
 export interface RunItems {
     runId: string;
