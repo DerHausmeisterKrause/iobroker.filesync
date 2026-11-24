@@ -6,6 +6,8 @@ import {SyncEngine} from "../src/lib/sync/engine";
 import {PersistentStore} from "../src/lib/persistence/store";
 import {LocalStorageProvider} from "../src/lib/storage/local";
 import type {Job,LocalLocation} from "../src/lib/types";
+import {Readable} from "node:stream";
+import {runContext,type RunRecord} from "../src/lib/runs/manager";
 
 const roots:string[]=[];
 const sourceId="00000000-0000-4000-8000-000000000001";
@@ -131,5 +133,21 @@ describe("SyncEngine",()=>{
   const x=await setup();await writeFile(path.join(x.source,"move.txt"),"keep");
   await expect(x.engine.run(job({mode:"move",targetLocationId:sourceId,targetPath:"sub"}),x.sourceProvider,x.sourceProvider)).rejects.toThrow("Source and target overlap");
   expect(await readFile(path.join(x.source,"move.txt"),"utf8")).toBe("keep");
+ });
+
+ it("reports actual streaming bytes and isolated live progress",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"live.txt"),"1234567890");
+  let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve});
+  const source=Object.create(x.sourceProvider) as LocalStorageProvider;
+  source.createReadStream=async()=>Readable.from((async function*(){yield Buffer.from("12345");await gate;yield Buffer.from("67890")})());
+  const record:RunRecord={runId:"live",jobId,source:"manual",dryRun:false,status:"running",queuedAt:Date.now()};
+  const work=runContext.run(record,()=>x.engine.run(job(),source,x.targetProvider));
+  try{await expect.poll(()=>record.progress?.fileBytes).toBe(5);expect(record.progress).toMatchObject({phase:"transfer",scanned:1,processed:0,bytes:5,currentFile:"live.txt",fileSize:10});expect(record.progress!.bytesPerSecond).toBeGreaterThan(0)}finally{release();await work}
+  expect(record.progress).toMatchObject({scanned:1,processed:1,bytes:10});expect(await readFile(path.join(x.target,"live.txt"),"utf8")).toBe("1234567890");
+ });
+ it("does not report planned preview bytes as actual transferred bytes",async()=>{
+  const x=await setup();await writeFile(path.join(x.source,"preview.txt"),"preview");
+  const record:RunRecord={runId:"preview",jobId,source:"preview",dryRun:true,status:"running",queuedAt:Date.now()};
+  const result=await runContext.run(record,()=>x.engine.run(job({dryRun:true}),x.sourceProvider,x.targetProvider));expect(result.bytes).toBe(7);expect(record.progress).toMatchObject({processed:1,bytes:0});
  });
 });
