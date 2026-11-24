@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 (2026-11-24)
+
+- Report live per-run source file counts, stream bytes, current file and average current-file rate.
+- Display current-file progress and estimated remaining file time; distinguish scan and mirror phases.
+- Keep preview byte estimates separate from actual transfer bytes.
+- Add progress regression and browser smoke tests.
+
 ## 0.1.2 (2026-11-24)
 
 - Color-code run history by status and filter by status, job, dry run and search.
