@@ -21,7 +21,7 @@ export class DeliveryJournal{
  }
  async deliver(userId:string,event:string,to:string,send:()=>Promise<void>,digest?:{kind:string;key:string}):Promise<DeliveryResult>{
   const now=Date.now(),id=randomUUID();
-  const reserved=await this.mutate(next=>{const user=next.get(userId)??{history:[],digestKeys:{}};const recent=user.history.filter(entry=>now-entry.at<3600000);if(recent.length>=10)return false;if(event==="Testmail"&&recent.some(entry=>entry.event===event&&now-entry.at<300000))return false;if(digest&&user.digestKeys[digest.kind]===digest.key)return false;if(digest)user.digestKeys[digest.kind]=digest.key;user.history.push({id,at:now,event,to,status:"pending"});user.history=user.history.slice(-100);next.set(userId,user);return true});
+  const reserved=await this.mutate(next=>{const user:UserJournal=next.get(userId)??{history:[],digestKeys:{}};const recent=user.history.filter(entry=>now-entry.at<3600000);if(recent.length>=10)return false;if(event==="Testmail"&&recent.some(entry=>entry.event===event&&now-entry.at<300000))return false;if(digest&&user.digestKeys[digest.kind]===digest.key)return false;if(digest)user.digestKeys[digest.kind]=digest.key;user.history.push({id,at:now,event,to,status:"pending"});user.history=user.history.slice(-100);next.set(userId,user);return true});
   if(!reserved)return "limited";
   let status:"accepted"|"error"="accepted";try{await send()}catch{status="error";this.warn()}
   try{await this.mutate(next=>{const entry=next.get(userId)?.history.find(item=>item.id===id);if(entry)entry.status=status})}catch{this.warn()}
