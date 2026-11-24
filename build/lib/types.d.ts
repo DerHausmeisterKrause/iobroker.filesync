@@ -146,6 +146,8 @@ export interface Job {
     updatedAt: string;
 }
 export interface AdapterConfig {
+    emailEnabled?: boolean;
+    emailInstance?: string;
     configVersion: number;
     web: WebConfig;
     webGroups: FileSyncGroup[];

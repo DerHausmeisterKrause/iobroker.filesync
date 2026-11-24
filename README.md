@@ -70,6 +70,14 @@ npm run test:package
 
 `npm run build` baut Backend und das nach `web-dist/` ausgelieferte Frontend; das npm-Paket enthält beide. Die CI prüft Node 20/22/24, wobei Node 22 die Integrations-Baseline ist.
 
+## Persönliche E-Mail-Benachrichtigungen
+
+1. Den ioBroker-Adapter `email` installieren und SMTP, Absender und Zugangsdaten dort konfigurieren.
+2. In den FileSync-Instanzeinstellungen im Reiter **Benachrichtigungen** die gewünschte E-Mail-Instanz (z. B. `email.0`) auswählen und den Versand aktivieren. Standardmäßig ist der Versand deaktiviert.
+3. Jeder angemeldete Benutzer kann unter **Benachrichtigungen** seine eigene E-Mail-Adresse, Ereignisse (Fehler, Erfolg, Wiederherstellung), sichtbare Jobs und eine Sperrzeit einstellen. Die Einstellungen werden im Instanzdatenverzeichnis gespeichert.
+
+Nur berechtigte Benutzer erhalten Meldungen zu freigegebenen Jobs. E-Mails enthalten Status, Jobname, Run-ID und Zeit, keine Dateipfade, Inhalte oder Zugangsdaten. Vorschauen versenden keine E-Mails. Pro Benutzer sind höchstens zehn Versandversuche pro Stunde und je Job/Ereignis die eingestellte Sperrzeit vorgesehen; diese Zähler sind im Arbeitsspeicher und werden beim Adapter-Neustart zurückgesetzt. Die eingetragene E-Mail-Adresse wird syntaktisch geprüft, aber nicht durch einen Bestätigungslink verifiziert. Daher nur für vertrauenswürdige Benutzer aktivieren. Fehlgeschlagene Versandversuche werden protokolliert und nicht automatisch wiederholt.
+
 ## Zugriffsprüfung
 
 Der Button **Verbindung testen** prüft ab 0.2.4 den Basisordner. Bei beschreibbaren Datenorten wird eine eigene temporäre Datei geschrieben, zurückgelesen, umbenannt und gelöscht. Die Ergebnisse werden je Schritt angezeigt. Bei einem als nur lesbar konfigurierten Datenort wird lediglich das Auflisten des Ordners geprüft. Der Test garantiert keine Rechte in Unterordnern oder auf bestehende Dateien. Kann eine Testdatei nicht entfernt werden, wird dies ausdrücklich gemeldet. Hintergrund-Healthchecks bleiben unverändert und führen keinen Schreibtest aus.
