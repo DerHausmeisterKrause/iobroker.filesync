@@ -9,8 +9,8 @@ afterEach(async()=>{await Promise.all(roots.splice(0).map(root=>rm(root,{recursi
 async function setup(){
  const root=await mkdtemp(path.join(tmpdir(),"filesync-mail-"));roots.push(root);
  const user=(id:string,groupIds:string[],enabled=true):WebUser=>({id,username:id,displayName:id,admin:false,enabled,groupIds});
- const cfg={emailEnabled:true,emailInstance:"email.0",webUsers:[user("alice",["A"]),user("bob",["B"]),user("disabled",["A"],false)],webGroups:[{id:"A",enabled:true},{id:"B",enabled:true}],jobs:[{id:"job",name:"Backup",groupIds:["A"]} as Job]} as AdapterConfig;
- const send=vi.fn(async(_instance:string,_mail:{to:string;subject:string;text:string})=>undefined),warn=vi.fn();
+ const cfg={emailEnabled:true,emailInstance:"email.0",webUsers:[user("alice",["A"]),user("bob",["B"]),user("disabled",["A"],false)],webGroups:[{id:"A",enabled:true},{id:"B",enabled:true}],jobs:[{id:"job",name:"Backup",groupIds:["A"]} as Job]} as unknown as AdapterConfig;
+ const send=vi.fn(async(instance:string,mail:{to:string;subject:string;text:string})=>{void instance;void mail;return undefined}),warn=vi.fn();
  const service=new NotificationService(root,()=>cfg,send,warn);await service.load();
  return {root,cfg,service,send,warn};
 }
