@@ -8,7 +8,9 @@ import type { AdapterConfig, DataLocation, SecretRecord, WebUser } from "./types
 import { SessionStore, safeUser, verifyPassword } from "./web-auth";
 
 import {parsePreferences,type Preferences} from "./notifications";
+import type {DeliveryEntry,DeliveryResult} from "./mail-journal";
 export interface WebApi {
+ notificationHistory?(userId:string):DeliveryEntry[];testNotification?(userId:string):Promise<DeliveryResult>;
  notificationPreferences?(userId:string):Preferences; saveNotificationPreferences?(userId:string,pref:Preferences):Promise<Preferences>;
  config():AdapterConfig; publicLocation(location:DataLocation):unknown; persistLocation(raw:unknown,secret?:SecretRecord):Promise<unknown>; deleteLocation(id:string):Promise<void>;
  persistJob(raw:unknown):Promise<unknown>; deleteJob(id:string):Promise<void>; testLocation(id:string,write:boolean):Promise<unknown>; browseLocation(id:string,p:string,offset:number,limit:number):Promise<unknown>;
@@ -42,6 +44,14 @@ export class StandaloneWebServer{
  private async login(req:IncomingMessage,res:ServerResponse){const body=z.object({username:z.string().min(1).max(128),password:z.string().min(1).max(1024)}).parse(await this.body(req));const key=`${req.socket.remoteAddress??"unknown"}|${body.username.toLocaleLowerCase()}`,failure=this.failures.get(key);if(failure&&failure.blockedUntil>Date.now())throw new ApiError(429,"LOGIN_RATE_LIMITED","Too many login attempts; try again later");const user=this.api.config().webUsers.find(x=>x.username.toLocaleLowerCase()===body.username.toLocaleLowerCase());if(!user?.enabled||!await verifyPassword(body.password,user.passwordHash)){const count=(failure?.count??0)+1;this.failures.set(key,{count,blockedUntil:count>=5?Date.now()+Math.min(300_000,2**(count-5)*10_000):0});throw new ApiError(401,"INVALID_CREDENTIALS","Benutzername oder Passwort falsch")}this.failures.delete(key);this.sessions.delete(this.cookie(req));const session=this.sessions.create(user.id);res.setHeader("Set-Cookie",`filesync_session=${session.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor((session.expiresAt-Date.now())/1000)}${this.secure?"; Secure":""}`);this.json(res,200,{ok:true,data:{user:safeUser(user,this.api.config().webGroups),csrfToken:session.csrf}})}
  private runVisible(user:WebUser,record:any){if(user.admin)return true;const job=this.api.config().jobs.find(x=>x.id===record?.jobId);return Boolean(job&&this.can(user,job.groupIds))}
  private async apiRequest(req:IncomingMessage,res:ServerResponse,url:URL){const method=req.method??"GET",parts=url.pathname.split("/").filter(Boolean);if(url.pathname==="/api/auth/login"&&method==="POST"){await this.login(req,res);return}const p=this.principal(req);if(method!=="GET")this.csrf(req,p);
+  if(url.pathname==="/api/notifications/me/history"&&method==="GET"){
+   if(!this.api.notificationHistory)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
+   return this.json(res,200,{ok:true,data:this.api.notificationHistory(p.user.id)});
+  }
+  if(url.pathname==="/api/notifications/me/test"&&method==="POST"){
+   if(!this.api.testNotification)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
+   return this.json(res,200,{ok:true,data:{status:await this.api.testNotification(p.user.id)}});
+  }
   if(url.pathname==="/api/notifications/me"){
    if(!this.api.notificationPreferences||!this.api.saveNotificationPreferences)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
    const cfg=this.api.config(),available=cfg.emailEnabled===true&&/^email\.\d+$/.test(cfg.emailInstance??"");
