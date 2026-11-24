@@ -1,6 +1,9 @@
 import type { AdapterConfig, DataLocation, SecretRecord } from "./types";
 import type { Preferences } from "./notifications";
+import type {DeliveryEntry,DeliveryResult} from "./mail-journal";
 export interface WebApi {
+    notificationHistory?(userId:string):DeliveryEntry[];
+    testNotification?(userId:string):Promise<DeliveryResult>;
     notificationPreferences?(userId:string):Preferences;
     saveNotificationPreferences?(userId:string,pref:Preferences):Promise<Preferences>;
     config(): AdapterConfig;

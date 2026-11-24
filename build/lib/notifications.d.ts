@@ -1,5 +1,7 @@
 import type {AdapterConfig,Job,WebUser} from "./types";
-export interface Preferences { email:string; failures:boolean; successes:boolean; recovery:boolean; allJobs:boolean; jobIds:string[]; cooldownMinutes:number }
+import type {RunRecord} from "./runs/manager";
+import type {DeliveryEntry,DeliveryResult} from "./mail-journal";
+export interface Preferences { email:string; failures:boolean; successes:boolean; recovery:boolean; allJobs:boolean; jobIds:string[]; cooldownMinutes:number; warnings:boolean; digest:"off"|"daily"|"weekly" }
 export interface Mail { to:string; subject:string; text:string }
 export declare function canNotify(user:WebUser,job:Job,cfg:AdapterConfig):boolean;
 export declare function defaults():Preferences;
@@ -9,5 +11,8 @@ export declare class NotificationService {
  load():Promise<void>;
  get(userId:string):Preferences;
  save(userId:string,pref:Preferences):Promise<Preferences>;
- notify(jobId:string,runId:string,success:boolean,wasFailed:boolean):Promise<void>;
+ history(userId:string):DeliveryEntry[];
+ testMail(userId:string):Promise<DeliveryResult>;
+ digest(runs:readonly RunRecord[],now?:Date):Promise<void>;
+ notify(jobId:string,runId:string,success:boolean,wasFailed:boolean,warning?:boolean):Promise<void>;
 }

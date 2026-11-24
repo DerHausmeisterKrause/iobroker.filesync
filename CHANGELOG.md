@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.6 (2026-11-24)
+
+- Add personal test mail, persistent history for the last 100 attempts per user and restart-safe hourly/test-mail limits.
+- Add warning subscriptions for truncated file action details and daily or weekly summaries of authorized productive runs.
+- Summaries use server-local calendar periods, starting at 08:00, and the last 500 retained runs; persist a period marker before attempting delivery to avoid duplicates.
+
+
 ## 0.2.5 (2026-11-24)
 
 - Add central email adapter selection and enable switch in ioBroker Admin.

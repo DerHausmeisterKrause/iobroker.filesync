@@ -100,6 +100,14 @@ class StandaloneWebServer {
         const p = this.principal(req);
         if (method !== "GET")
             this.csrf(req, p);
+  if(url.pathname==="/api/notifications/me/history"&&method==="GET"){
+   if(!this.api.notificationHistory)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
+   return this.json(res,200,{ok:true,data:this.api.notificationHistory(p.user.id)});
+  }
+  if(url.pathname==="/api/notifications/me/test"&&method==="POST"){
+   if(!this.api.testNotification)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
+   return this.json(res,200,{ok:true,data:{status:await this.api.testNotification(p.user.id)}});
+  }
   if(url.pathname==="/api/notifications/me"){
    if(!this.api.notificationPreferences||!this.api.saveNotificationPreferences)throw new ApiError(503,"NOTIFICATIONS_UNAVAILABLE","Notifications unavailable");
    const cfg=this.api.config(),available=cfg.emailEnabled===true&&/^email\.\d+$/.test(cfg.emailInstance??"");
