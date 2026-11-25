@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.11 (2026-11-25)
+
+- Offer SMB 2.0.2 through SMB 3.1.1 automatically or select an exact dialect per SMB location.
+- Apply SMB 2.0.2 reserved wire credit field and bounded transfer sizes while retaining NTLMv2 and required signing.
+- Retry a fresh SMB 2.0.2-only negotiation only on explicit negotiate-not-supported in auto mode; no retry on authentication failure.
+- Display negotiated SMB version in access tests and extend Samba CI across all five dialects.
+
 ## 0.2.10 (2026-11-25)
 
 - Simplify SMB setup to a single UNC/network path and domain-qualified username.
