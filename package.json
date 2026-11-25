@@ -1,7 +1,7 @@
 {
   "name": "iobroker.filesync",
-  "version": "0.2.11",
-  "description": "Secure file synchronization between local, SMB 2.1/3.x and SFTP locations",
+  "version": "0.2.12",
+  "description": "Secure file synchronization between local, SMB 2.0.2/3.x and SFTP locations",
   "author": "DerHausmeisterKrause",
   "license": "MIT",
   "main": "build/main.js",
