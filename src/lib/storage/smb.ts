@@ -8,8 +8,8 @@ import {normalizeRelative} from "../security/path";
 import {isNotFoundError} from "./errors";
 
 interface RuntimeSmbStat {size:number;mtime:Date;isDirectory():boolean}
-export interface SmbClient {connect?():Promise<void>;disconnect():void|Promise<void>;readdir(path:string):Promise<string[]>;stat(path:string):Promise<unknown>;mkdir(path:string):Promise<void>;createReadStream(path:string):Promise<Readable>;createWriteStream(path:string):Promise<Writable>;rename(from:string,to:string):Promise<void>;rmdir(path:string):Promise<void>;unlink(path:string):Promise<void>}
-type SmbConstructor=new(options:{host:string;share:string;domain:string;username:string;password:string;port:number;autoCloseTimeout:number})=>SmbClient;
+export interface SmbClient {negotiatedDialect?:string;connect?():Promise<void>;disconnect():void|Promise<void>;readdir(path:string):Promise<string[]>;stat(path:string):Promise<unknown>;mkdir(path:string):Promise<void>;createReadStream(path:string):Promise<Readable>;createWriteStream(path:string):Promise<Writable>;rename(from:string,to:string):Promise<void>;rmdir(path:string):Promise<void>;unlink(path:string):Promise<void>}
+type SmbConstructor=new(options:{host:string;share:string;domain:string;username:string;password:string;port:number;autoCloseTimeout:number;dialect?:SmbLocation["dialect"]})=>SmbClient;
 const createClient=(options:ConstructorParameters<SmbConstructor>[0]):SmbClient=>{const SMB3=createRequire(__filename)(path.resolve(__dirname,"../../../src/lib/storage/smb-worker.cjs")) as unknown as SmbConstructor;return new SMB3(options)};
 
 /** Validate the worker's file metadata before exposing it to the engine. */
@@ -27,11 +27,12 @@ export class SmbStorageProvider implements StorageProvider {
  private p(p:string){return path.posix.join(normalizeRelative(this.l.basePath),normalizeRelative(p)).replace(/\//g,"\\")}
  async connect(){
   if(!this.secret.password)throw new Error("SMB password unavailable");
-  this.client=this.factory({host:this.l.host,share:this.l.share,domain:this.l.domain??"",username:this.l.username,password:this.secret.password,port:this.l.port,autoCloseTimeout:this.l.timeoutMs});
+  this.client=this.factory({host:this.l.host,share:this.l.share,domain:this.l.domain??"",username:this.l.username,password:this.secret.password,port:this.l.port,autoCloseTimeout:this.l.timeoutMs,...(this.l.dialect?{dialect:this.l.dialect}:{})});
   await this.client.connect?.();
  }
  async disconnect(){const client=this.client;this.client=undefined;await client?.disconnect()}
  private c(){if(!this.client)throw new Error("SMB not connected");return this.client}
+ getProtocol(){return this.client?.negotiatedDialect}
  async testConnection(){const t=Date.now();await this.list("");return{latencyMs:Date.now()-t}}
  async list(p:string):Promise<FileMetadata[]>{
   // Resolve each entry to metadata; do not accept paths from directory names.
