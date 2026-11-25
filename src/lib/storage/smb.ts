@@ -8,9 +8,9 @@ import {normalizeRelative} from "../security/path";
 import {isNotFoundError} from "./errors";
 
 interface RuntimeSmbStat {size:number;mtime:Date;isDirectory():boolean}
-export interface SmbClient {disconnect():void;readdir(path:string):Promise<string[]>;stat(path:string):Promise<unknown>;mkdir(path:string):Promise<void>;createReadStream(path:string):Promise<Readable>;createWriteStream(path:string):Promise<Writable>;rename(from:string,to:string):Promise<void>;rmdir(path:string):Promise<void>;unlink(path:string):Promise<void>}
+export interface SmbClient {disconnect():void|Promise<void>;readdir(path:string):Promise<string[]>;stat(path:string):Promise<unknown>;mkdir(path:string):Promise<void>;createReadStream(path:string):Promise<Readable>;createWriteStream(path:string):Promise<Writable>;rename(from:string,to:string):Promise<void>;rmdir(path:string):Promise<void>;unlink(path:string):Promise<void>}
 type SmbConstructor=new(options:{share:string;domain:string;username:string;password:string;port:number;autoCloseTimeout:number})=>SmbClient;
-const createClient=(options:ConstructorParameters<SmbConstructor>[0]):SmbClient=>{const SMB2=createRequire(__filename)("@marsaud/smb2") as unknown as SmbConstructor;return new SMB2(options)};
+const createClient=(options:ConstructorParameters<SmbConstructor>[0]):SmbClient=>{const SMB2=createRequire(__filename)(path.resolve(__dirname,"../../../src/lib/storage/smb-worker.cjs")) as unknown as SmbConstructor;return new SMB2(options)};
 
 /**
  * @marsaud/smb2's runtime stat mapper includes `size` (lib/tools/file-info.js),
@@ -33,13 +33,13 @@ export class SmbStorageProvider implements StorageProvider {
   if(!this.secret.password)throw new Error("SMB password unavailable");
   this.client=this.factory({share:`\\\\${this.l.host}\\${this.l.share}`,domain:this.l.domain??"",username:this.l.username,password:this.secret.password,port:this.l.port,autoCloseTimeout:this.l.timeoutMs});
  }
- async disconnect(){this.client?.disconnect();this.client=undefined}
+ async disconnect(){const client=this.client;this.client=undefined;await client?.disconnect()}
  private c(){if(!this.client)throw new Error("SMB not connected");return this.client}
  async testConnection(){const t=Date.now();await this.list("");return{latencyMs:Date.now()-t}}
  async list(p:string):Promise<FileMetadata[]>{
   // Without `stats: true`, 0.18 returns names, not Dirent-like objects.
   const names=await this.c().readdir(this.p(p));
-  return Promise.all(names.map(name=>this.stat(path.posix.join(this.normalizePath(p),name))));
+  const entries:FileMetadata[]=[];for(const name of names)entries.push(await this.stat(path.posix.join(this.normalizePath(p),name)));return entries;
  }
  async stat(p:string):Promise<FileMetadata>{
   const s=runtimeStat(await this.c().stat(this.p(p)));
