@@ -2,7 +2,7 @@ import type { Readable, Writable } from "node:stream";
 import type { FileMetadata, SmbLocation, SecretRecord } from "../types";
 import type { StorageProvider } from "./provider";
 export interface SmbClient {
-    disconnect(): void;
+    disconnect(): void | Promise<void>;
     readdir(path: string): Promise<string[]>;
     stat(path: string): Promise<unknown>;
     mkdir(path: string): Promise<void>;
