@@ -6,12 +6,12 @@ import {redact} from "../security/redact";
 
 type Step = "list" | "write" | "read" | "rename" | "delete";
 type Check = {step:Step;status:"ok"|"error"|"skipped";message?:string};
-export interface AccessReport { latencyMs:number; checks:Check[]; readOnly:boolean; ok:boolean; cleanupError?:string; }
+export interface AccessReport { latencyMs:number; checks:Check[]; readOnly:boolean; ok:boolean; cleanupError?:string; protocol?:string; }
 
 /** An opt-in write probe; normal health checks remain read-only. */
 export async function testAccess(provider:StorageProvider,readOnly:boolean,secrets:string[]=[]):Promise<AccessReport>{
  const started=Date.now(),checks:Check[]=[];
- const report:AccessReport={latencyMs:0,checks,readOnly,ok:false};
+ const report:AccessReport={latencyMs:0,checks,readOnly,ok:false,protocol:provider.getProtocol?.()};
  const steps:Step[]=["list","write","read","rename","delete"];
  const id=randomUUID(),temporary=`.access.filesync-${id}.tmp`,renamed=`.access-renamed.filesync-${id}.tmp`;
  const payload=Buffer.from("FileSync access probe\n");

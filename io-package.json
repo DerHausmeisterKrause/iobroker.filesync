@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.10",
+    "version": "0.2.11",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.11": {
+        "en": "SMB 2.0.2 compatibility and explicit dialect selection",
+        "de": "SMB 2.0.2 und manuelle Protokollauswahl"
+      },
       "0.2.10": {
         "en": "Simplified SMB network path editor",
         "de": "Einfacher SMB-Netzwerkpfad und Domänenbenutzer"

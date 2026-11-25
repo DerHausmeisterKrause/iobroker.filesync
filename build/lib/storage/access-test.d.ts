@@ -11,6 +11,7 @@ export interface AccessReport {
     readOnly: boolean;
     ok: boolean;
     cleanupError?: string;
+    protocol?: string;
 }
 /** An opt-in write probe; normal health checks remain read-only. */
 export declare function testAccess(provider: StorageProvider, readOnly: boolean, secrets?: string[]): Promise<AccessReport>;

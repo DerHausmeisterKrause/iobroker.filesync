@@ -14,7 +14,7 @@ function safeError(error){
 
 if(!isMainThread&&workerData?.fileSyncSmb===true){
  const port=parentPort,options=workerData.options,streams=new Map();
- let client,sequence=0;
+ let client,negotiatedDialect,sequence=0;
  const share=options.share;
  if(typeof share!=="string"||!share||/[\\/\x00:]/.test(share)||share==="."||share==="..")throw failure("Invalid SMB share","EINVAL");
  // All API paths are share-relative. Never pass UNC or traversal segments to the library.
@@ -26,9 +26,9 @@ if(!isMainThread&&workerData?.fileSyncSmb===true){
  }
  let connection;
  const getClient=()=>connection??=(async()=>{
-  const Client=workerData.testModule?require(workerData.testModule):(await import("smb3-client")).Client;
-  client=new Client({host:options.host,port:options.port,domain:options.domain,username:options.username,password:options.password,connectTimeout:options.autoCloseTimeout,requestTimeout:options.autoCloseTimeout,signing:"required",encryption:"if-offered"});
-  await client.connect();
+  const config={host:options.host,port:options.port,domain:options.domain,username:options.username,password:options.password,connectTimeout:options.autoCloseTimeout,requestTimeout:options.autoCloseTimeout,signing:"required",encryption:"if-offered"};
+  if(workerData.testModule){const Client=require(workerData.testModule);client=new Client(config);await client.connect()}
+  else{const {openNativeSmb}=await import("./smb-dialects.mjs");const result=await openNativeSmb(config,options.dialect??"auto");client=result.client;negotiatedDialect=result.dialect}
   return client;
  })();
  async function execute(op,args){
@@ -50,7 +50,7 @@ if(!isMainThread&&workerData?.fileSyncSmb===true){
   }
   if(op==="stream-close"){const entry=streams.get(args[0]);if(entry){streams.delete(args[0]);entry.stream.destroy()}return}
   const c=await getClient();
-  if(op==="connect")return;
+  if(op==="connect")return negotiatedDialect;
   if(op==="stat"){const s=await c.stat(smbPath(args[0]));if((s.attributes&0x400)!==0)throw failure("SMB reparse point is not supported","SMB_REPARSE_POINT");return {size:s.size,mtime:s.mtime,isDirectory:s.isDirectory,attributes:s.attributes}}
   if(op==="read-open"||op==="write-open"){
    const stream=await (op==="read-open"?c.createReadStream(smbPath(args[0])):c.createWriteStream(smbPath(args[0])));
@@ -98,7 +98,7 @@ if(!isMainThread&&workerData?.fileSyncSmb===true){
    if(!this.dead){try{await this.rpc("close")}catch{}}
    this.fail(failure("SMB connection closed","SMB_WORKER_CLOSED"));
   }
-  connect(){return this.rpc("connect")}
+  async connect(){this.negotiatedDialect=await this.rpc("connect")}
   readdir(p){return this.rpc("readdir",p)}
   async stat(p){const s=await this.rpc("stat",p);return {...s,isDirectory:()=>s.isDirectory}}
   mkdir(p){return this.rpc("mkdir",p)}

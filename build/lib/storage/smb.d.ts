@@ -2,6 +2,7 @@ import type { Readable, Writable } from "node:stream";
 import type { FileMetadata, SmbLocation, SecretRecord } from "../types";
 import type { StorageProvider } from "./provider";
 export interface SmbClient {
+    negotiatedDialect?: string;
     connect?(): Promise<void>;
     disconnect(): void | Promise<void>;
     readdir(path: string): Promise<string[]>;
@@ -21,6 +22,7 @@ type SmbConstructor = new (options: {
     password: string;
     port: number;
     autoCloseTimeout: number;
+    dialect?: SmbLocation["dialect"];
 }) => SmbClient;
 export declare class SmbStorageProvider implements StorageProvider {
     private readonly l;
@@ -33,6 +35,7 @@ export declare class SmbStorageProvider implements StorageProvider {
     connect(): Promise<void>;
     disconnect(): Promise<void>;
     private c;
+    getProtocol(): string | undefined;
     testConnection(): Promise<{
         latencyMs: number;
     }>;

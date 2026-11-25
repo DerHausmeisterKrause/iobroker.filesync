@@ -33,12 +33,13 @@ class SmbStorageProvider {
     async connect() {
         if (!this.secret.password)
             throw new Error("SMB password unavailable");
-        this.client = this.factory({ host:this.l.host,share:this.l.share, domain: this.l.domain ?? "", username: this.l.username, password: this.secret.password, port: this.l.port, autoCloseTimeout: this.l.timeoutMs });
+        this.client = this.factory({ host:this.l.host,share:this.l.share, domain: this.l.domain ?? "", username: this.l.username, password: this.secret.password, port: this.l.port, autoCloseTimeout: this.l.timeoutMs, ...(this.l.dialect?{dialect:this.l.dialect}:{}) });
         await this.client.connect?.();
     }
     async disconnect() { const client=this.client; this.client=undefined; await client?.disconnect(); }
     c() { if (!this.client)
         throw new Error("SMB not connected"); return this.client; }
+    getProtocol(){return this.client?.negotiatedDialect}
     async testConnection() { const t = Date.now(); await this.list(""); return { latencyMs: Date.now() - t }; }
     async list(p) {
         // Resolve each entry to metadata; do not accept paths from directory names.

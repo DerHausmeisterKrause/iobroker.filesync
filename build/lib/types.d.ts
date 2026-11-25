@@ -14,6 +14,7 @@ export interface LocalLocation extends LocationBase {
 }
 export interface SmbLocation extends LocationBase {
     type: "smb";
+    dialect?: "auto"|"2.0.2"|"2.1"|"3.0"|"3.0.2"|"3.1.1";
     host: string;
     port: number;
     share: string;

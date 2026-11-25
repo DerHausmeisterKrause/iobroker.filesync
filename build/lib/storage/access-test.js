@@ -9,7 +9,7 @@ const redact_1 = require("../security/redact");
 /** An opt-in write probe; normal health checks remain read-only. */
 async function testAccess(provider, readOnly, secrets = []) {
     const started = Date.now(), checks = [];
-    const report = { latencyMs: 0, checks, readOnly, ok: false };
+    const report = { latencyMs: 0, checks, readOnly, ok: false, protocol: provider.getProtocol?.() };
     const steps = ["list", "write", "read", "rename", "delete"];
     const id = (0, node_crypto_1.randomUUID)(), temporary = `.access.filesync-${id}.tmp`, renamed = `.access-renamed.filesync-${id}.tmp`;
     const payload = Buffer.from("FileSync access probe\n");

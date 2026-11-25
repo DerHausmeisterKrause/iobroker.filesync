@@ -1,6 +1,7 @@
 import type { FileMetadata } from "../types";
 import type { Readable, Writable } from "node:stream";
 export interface StorageProvider {
+    getProtocol?(): string | undefined;
     connect(): Promise<void>;
     disconnect(): Promise<void>;
     testConnection(writeTest?: boolean): Promise<{
