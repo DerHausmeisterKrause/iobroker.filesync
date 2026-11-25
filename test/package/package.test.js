@@ -34,6 +34,7 @@ describe("committed runtime", () => {
     it("ships the isolated SMB worker used at runtime", () => {
         assert.ok(pkg.files.includes("src"));
         assert.ok(fs.existsSync(path.join(__dirname,"../../src/lib/storage/smb-worker.cjs")));
+        assert.ok(fs.existsSync(path.join(__dirname,"../../src/lib/storage/smb-dialects.mjs")));
     });
     it("ships sources needed for an emergency local build", () => {
         for (const file of ["src", "tsconfig.json", "scripts-build-web.js"]) {
