@@ -65,3 +65,47 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+
+  native-smb:
+    name: Native SMB3 integration (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - run: npm ci
+      - name: Start disposable Samba share with NTLMv2, signing and encryption required
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y samba
+          sudo mkdir -p /srv/filesync-test
+          sudo chown "$(id -un)" /srv/filesync-test
+          sudo tee /etc/samba/smb.conf >/dev/null <<EOF
+          [global]
+            workgroup = WORKGROUP
+            server role = standalone server
+            interfaces = 127.0.0.1
+            bind interfaces only = yes
+            smb ports = 1445
+            server min protocol = SMB3_00
+            server max protocol = SMB3_11
+            server signing = mandatory
+            ntlm auth = ntlmv2-only
+            map to guest = Never
+          [filesync]
+            path = /srv/filesync-test
+            read only = no
+            valid users = $(id -un)
+            smb encrypt = required
+          EOF
+          printf '%s\n%s\n' 'FileSync-ci-only-2026!' 'FileSync-ci-only-2026!' | sudo smbpasswd -s -a "$(id -un)"
+          sudo testparm -s
+          sudo systemctl restart smbd
+          for i in {1..30}; do
+            if (echo >/dev/tcp/127.0.0.1/1445) 2>/dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Exercise real SMB protocol
+        run: SMB_TEST_USER="$(id -un)" SMB_TEST_PASSWORD='FileSync-ci-only-2026!' node --test test/smb-native.integration.cjs
