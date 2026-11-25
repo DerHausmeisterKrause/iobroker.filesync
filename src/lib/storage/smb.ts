@@ -8,15 +8,11 @@ import {normalizeRelative} from "../security/path";
 import {isNotFoundError} from "./errors";
 
 interface RuntimeSmbStat {size:number;mtime:Date;isDirectory():boolean}
-export interface SmbClient {disconnect():void|Promise<void>;readdir(path:string):Promise<string[]>;stat(path:string):Promise<unknown>;mkdir(path:string):Promise<void>;createReadStream(path:string):Promise<Readable>;createWriteStream(path:string):Promise<Writable>;rename(from:string,to:string):Promise<void>;rmdir(path:string):Promise<void>;unlink(path:string):Promise<void>}
-type SmbConstructor=new(options:{share:string;domain:string;username:string;password:string;port:number;autoCloseTimeout:number})=>SmbClient;
-const createClient=(options:ConstructorParameters<SmbConstructor>[0]):SmbClient=>{const SMB2=createRequire(__filename)(path.resolve(__dirname,"../../../src/lib/storage/smb-worker.cjs")) as unknown as SmbConstructor;return new SMB2(options)};
+export interface SmbClient {connect?():Promise<void>;disconnect():void|Promise<void>;readdir(path:string):Promise<string[]>;stat(path:string):Promise<unknown>;mkdir(path:string):Promise<void>;createReadStream(path:string):Promise<Readable>;createWriteStream(path:string):Promise<Writable>;rename(from:string,to:string):Promise<void>;rmdir(path:string):Promise<void>;unlink(path:string):Promise<void>}
+type SmbConstructor=new(options:{host:string;share:string;domain:string;username:string;password:string;port:number;autoCloseTimeout:number})=>SmbClient;
+const createClient=(options:ConstructorParameters<SmbConstructor>[0]):SmbClient=>{const SMB3=createRequire(__filename)(path.resolve(__dirname,"../../../src/lib/storage/smb-worker.cjs")) as unknown as SmbConstructor;return new SMB3(options)};
 
-/**
- * @marsaud/smb2's runtime stat mapper includes `size` (lib/tools/file-info.js),
- * although 0.18.0's declaration omits it. Keep that discrepancy local and
- * validate the value before exposing it as provider metadata.
- */
+/** Validate the worker's file metadata before exposing it to the engine. */
 function runtimeStat(value:unknown):RuntimeSmbStat {
  if(!value||typeof value!=="object"||!("size" in value)||typeof value.size!=="number"
   ||!("mtime" in value)||!(value.mtime instanceof Date)||!("isDirectory" in value)
@@ -31,15 +27,16 @@ export class SmbStorageProvider implements StorageProvider {
  private p(p:string){return path.posix.join(normalizeRelative(this.l.basePath),normalizeRelative(p)).replace(/\//g,"\\")}
  async connect(){
   if(!this.secret.password)throw new Error("SMB password unavailable");
-  this.client=this.factory({share:`\\\\${this.l.host}\\${this.l.share}`,domain:this.l.domain??"",username:this.l.username,password:this.secret.password,port:this.l.port,autoCloseTimeout:this.l.timeoutMs});
+  this.client=this.factory({host:this.l.host,share:this.l.share,domain:this.l.domain??"",username:this.l.username,password:this.secret.password,port:this.l.port,autoCloseTimeout:this.l.timeoutMs});
+  await this.client.connect?.();
  }
  async disconnect(){const client=this.client;this.client=undefined;await client?.disconnect()}
  private c(){if(!this.client)throw new Error("SMB not connected");return this.client}
  async testConnection(){const t=Date.now();await this.list("");return{latencyMs:Date.now()-t}}
  async list(p:string):Promise<FileMetadata[]>{
-  // Without `stats: true`, 0.18 returns names, not Dirent-like objects.
+  // Resolve each entry to metadata; do not accept paths from directory names.
   const names=await this.c().readdir(this.p(p));
-  const entries:FileMetadata[]=[];for(const name of names)entries.push(await this.stat(path.posix.join(this.normalizePath(p),name)));return entries;
+  const entries:FileMetadata[]=[];for(const name of names){if(name==="."||name==="..")continue;if(!name||/[\\/\x00:]/.test(name))throw new Error("Invalid SMB directory entry");entries.push(await this.stat(path.posix.join(this.normalizePath(p),name)))}return entries;
  }
  async stat(p:string):Promise<FileMetadata>{
   const s=runtimeStat(await this.c().stat(this.p(p)));

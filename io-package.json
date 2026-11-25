@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.8",
+    "version": "0.2.9",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.9": {
+        "en": "Native SMB 2.1/3.x with NTLMv2 and signing",
+        "de": "Natives SMB 2.1/3.x mit NTLMv2 und Signing"
+      },
       "0.2.8": {
         "en": "Isolate SMB connection crashes and improve error recovery",
         "de": "SMB-Verbindungsabstürze isolieren und Fehlerbehandlung verbessern"

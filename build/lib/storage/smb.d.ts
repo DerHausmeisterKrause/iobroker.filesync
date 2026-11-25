@@ -2,6 +2,7 @@ import type { Readable, Writable } from "node:stream";
 import type { FileMetadata, SmbLocation, SecretRecord } from "../types";
 import type { StorageProvider } from "./provider";
 export interface SmbClient {
+    connect?(): Promise<void>;
     disconnect(): void | Promise<void>;
     readdir(path: string): Promise<string[]>;
     stat(path: string): Promise<unknown>;
@@ -13,6 +14,7 @@ export interface SmbClient {
     unlink(path: string): Promise<void>;
 }
 type SmbConstructor = new (options: {
+    host: string;
     share: string;
     domain: string;
     username: string;

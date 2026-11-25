@@ -128,11 +128,13 @@ Der Button **Verbindung testen** prüft ab 0.2.4 den Basisordner. Bei beschreibb
 
 Seit 0.2.3 werden vorhandene Dateien ohne vorherige Stabilitätswartezeit verarbeitet, unabhängig von der alten Job-Einstellung. Dry Run bleibt schreibfrei. Änderungen während einer Übertragung werden weiterhin anhand der Dateimetadaten geprüft; Provider-Zugriffsfehler bleiben Fehler und werden nicht unterdrückt. Ein plattformübergreifender Nachweis, dass eine Datei von keinem anderen Programm geöffnet ist, ist nicht möglich.
 
-## SMB-Kompatibilität und Verbindungsfehler
+## Natives SMB (ab 0.2.9)
 
-Seit 0.2.8 läuft der bisherige SMB-Client in einem separaten Worker. Ein asynchroner Bibliotheksfehler oder ein Timeout beendet nur den betroffenen SMB-Worker, nicht den FileSync-Adapter. Das konfigurierte Timeout gilt pro Worker-Operation. Verbindungstests und die Verwaltung liefern bereinigte Fehlermeldungen zurück.
+FileSync verwendet `smb3-client` 0.2.0 für direkte SMB-Verbindungen ohne CIFS-Mount und ohne zusätzliche Systempakete. SMB 2.1 bis 3.1.1 und NTLMv2 werden durch die Bibliothek unterstützt. Signing ist verpflichtend; verschlüsselte Freigaben werden unterstützt, wenn vom Server verlangt. Es gibt keinen NTLMv1-Fallback und keinen OpenSSL-Legacy-Modus. Der SMB-Worker begrenzt einzelne Operationen durch das konfigurierte Timeout und isoliert Bibliotheksfehler vom Adapter.
 
-Die bisherige direkte SMB-Bibliothek `@marsaud/smb2` benötigt für ihre NTLMv1-Authentifizierung alte Kryptografie (DES und MD4). Auf Node.js/OpenSSL-Systemen ohne diese Algorithmen wird der Zugriff nun kontrolliert abgelehnt. Direkte moderne NTLMv2-/SMB3-Unterstützung ist noch nicht implementiert. Den globalen OpenSSL-Legacy-Modus nicht aktivieren und die Server-Sicherheitsrichtlinien nicht herabsetzen. Als Übergang kann eine per Linux CIFS mit modernen SMB-Einstellungen eingebundene Freigabe als lokaler Datenort verwendet werden. Vor produktiven Runs sicherstellen, dass die Freigabe tatsächlich eingehängt ist; bei einem fehlenden Mount darf insbesondere kein Mirror-/Move-Job laufen. Keine SMB-Zugangsdaten auf der Kommandozeile oder in Logs hinterlegen.
+Im Datenort **SMB** den Host, Port (normalerweise 445), den reinen Freigabenamen (z. B. `Daten`), den optionalen Unterordner, Benutzernamen, Passwort und bei Bedarf die Domäne/WORKGROUP eintragen. Bestehende SMB-Datenorte müssen nicht neu angelegt werden. Der Server muss NTLMv2 erlauben; Kerberos-only, DFS-Weiterleitungen und SMB1 sind nicht unterstützt. Für Firmenserver wird eine separate Testfreigabe empfohlen.
+
+Die neue Bibliothek befindet sich noch im Alpha-Stadium. Die Integration muss gegen echte Windows-/Samba-Server geprüft werden. Ein automatisierter CI-Test mit einer signierten und verschlüsselten Samba-Freigabe ist vorhanden. Vor produktiven Mirror-/Move-Jobs zuerst eine kleine und eine große Datei in beide Richtungen auf einer Testfreigabe übertragen und Prüfsummen vergleichen. Erkennbare Reparse-Points werden abgelehnt; vollständige Absicherung gegen serverseitig aufgelöste Verknüpfungen ist nicht garantiert. Keine untrusted SMB-Server anbinden.
 
 ## Sicherheitsgrenzen
 

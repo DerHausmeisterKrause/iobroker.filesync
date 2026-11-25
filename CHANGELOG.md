@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.9 (2026-11-25)
+
+- Replace the legacy NTLMv1 dependency with native smb3-client 0.2.0 (SMB 2.1–3.1.1, NTLMv2, mandatory signing).
+- Preserve SMB worker isolation, timeouts, existing location credentials and streaming operations.
+- Add Samba integration CI and explicit path/reparse-point checks.
+
 ## 0.2.8 (2026-11-25)
 
 - Isolate the legacy SMB client in a worker with bounded operation timeouts and crash-to-error conversion.

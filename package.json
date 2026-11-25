@@ -1,7 +1,7 @@
 {
   "name": "iobroker.filesync",
-  "version": "0.2.8",
-  "description": "Secure file synchronization between local, SMB2/3 and SFTP locations",
+  "version": "0.2.9",
+  "description": "Secure file synchronization between local, SMB 2.1/3.x and SFTP locations",
   "author": "DerHausmeisterKrause",
   "license": "MIT",
   "main": "build/main.js",
@@ -37,11 +37,11 @@
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.1",
-    "@marsaud/smb2": "^0.18.0",
     "chokidar": "^4.0.3",
     "minimatch": "^10.0.1",
     "ssh2-sftp-client": "^12.0.1",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "smb3-client": "0.2.0"
   },
   "devDependencies": {
     "@iobroker/testing": "^5.1.1",
