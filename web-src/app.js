@@ -1,4 +1,4 @@
-const frontendVersion="0.2.12";
+const frontendVersion="0.2.13";
 // BEGIN SMB editor helpers
 function parseSmbPath(raw){
  const parts=String(raw??"").trim().replace(/\\/g,"/").replace(/^\/+/,"").replace(/\/+$/,"").split("/");

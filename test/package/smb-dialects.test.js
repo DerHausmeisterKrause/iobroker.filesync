@@ -50,11 +50,34 @@ describe("SMB dialect compatibility",()=>{
   const capped=normalizeDirectoryRequest(14,first,16384);assert.equal(capped.readUInt32LE(28),16384);assert.equal(capped.readUInt16LE(24),96);assert.equal(capped.subarray(32).toString("utf16le"),"*");
   assert.equal(normalizeDirectoryRequest(8,first,16384),first);
  });
+ it("repeats the wildcard for legacy continuation without altering flags, file index or handle",()=>{
+  const original=directoryBody("");original.fill(0xab,8,24);
+  const fixed=normalizeDirectoryRequest(14,original,16384,true);
+  assert.equal(fixed.length,34);assert.equal(fixed.readUInt16LE(24),96);assert.equal(fixed.readUInt16LE(26),2);assert.equal(fixed.readUInt32LE(28),16384);assert.equal(fixed.subarray(32).toString("utf16le"),"*");
+  assert.deepEqual(fixed.subarray(0,24),original.subarray(0,24));assert.equal(fixed[3],0);
+  assert.equal(original.length,33);assert.equal(original.readUInt16LE(26),0);
+ });
+ it("completes legacy enumeration against a simulated server requiring an explicit wildcard",async()=>{
+  const f=fixture([0x0202]),result=await connectCompatible(f.Client,f.Connection,{}),conn=result.client.conn;
+  let page=0;
+  // Each query advances the existing enumeration; a restart or empty wildcard is rejected.
+  const first=directoryBody("*"),next=directoryBody("");
+  for(const input of [first,next,next]){
+   conn.responseStatus=page===2?0x80000006:0;
+   const response=await conn.send(14,input,{creditCharge:1});
+   const packet=f.sent.at(-1).body;
+   assert.equal(packet.readUInt16LE(26),2);
+   assert.equal(packet.subarray(32).toString("utf16le"),"*");
+   assert.equal(packet[3],page===0?1:0);
+   assert.equal(response.header.status,page===2?0x80000006:0);page++;
+  }
+  assert.equal(page,3);
+ });
  it("corrects requests before the upstream signing path for every dialect and preserves errors",async()=>{
   for(const dialect of [0x0202,0x0210,0x0300,0x0302,0x0311]){
    const f=fixture([dialect]);const result=await connectCompatible(f.Client,f.Connection,{});const conn=result.client.conn;
    const signing={sign:()=>Buffer.alloc(16)};await conn.send(14,directoryBody(""),{creditCharge:1,signing});
-   assert.equal(f.sent.at(-1).body.readUInt16LE(24),0);assert.equal(f.sent.at(-1).options.signing,signing);assert.equal(f.sent.at(-1).options.creditCharge,dialect===0x0202?0:1);
+   assert.equal(f.sent.at(-1).body.readUInt16LE(24),dialect===0x0202?96:0);assert.equal(f.sent.at(-1).options.signing,signing);assert.equal(f.sent.at(-1).options.creditCharge,dialect===0x0202?0:1);
    conn.responseStatus=0xc0000033;await assert.rejects(conn.send(14,directoryBody(""),{creditCharge:1}),/Fortsetzung/);await assert.rejects(conn.send(14,directoryBody("*"),{creditCharge:1}),/erste Anfrage/);
    conn.responseStatus=0x80000006;assert.equal((await conn.send(14,directoryBody(""),{})).header.status,0x80000006);
   }
