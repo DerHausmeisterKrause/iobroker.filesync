@@ -66,6 +66,7 @@ class FileSyncAdapter extends utils.Adapter {
     timers = new Map();
     failedJobs = new Set();
     health;
+    healthBusy=false;
     stopping = false;
     constructor(options = {}) { super({ ...options, name: "filesync" }); this.on("ready", () => void this.ready().catch(e => this.log.error(this.redactSafe(e)))); this.on("message", obj => void this.message(obj).catch(e => this.log.error(this.redactSafe(e)))); this.on("stateChange", (id, state) => void this.state(id, state).catch(e => this.log.warn(this.redactSafe(e)))); this.on("unload", cb => void this.unload(cb).catch(e => { this.log.error(this.redactSafe(e)); cb(); })); }
     async ready() {
@@ -124,7 +125,7 @@ class FileSyncAdapter extends utils.Adapter {
         await this.persistStaticConfig(); }
     async syncLocalLinks(running) { const id = `system.adapter.${this.namespace}`, object = await this.getForeignObjectAsync(id), wanted = (0, local_links_1.localLinksForWeb)(this.cfg.web, running); if (!(0, local_links_1.localLinksEqual)(object?.common?.localLinks, wanted))
         await this.extendForeignObjectAsync(id, { common: { localLinks: wanted } }); }
-    async startWebServer() { const webRoot = node_path_1.default.join(__dirname, "..", "web-dist"); this.webServer = new web_server_1.StandaloneWebServer({ config: () => this.cfg, notificationPreferences: id => this.mailNotifications.get(id), notificationHistory: id => this.mailNotifications.history(id), testNotification: id => this.mailNotifications.testMail(id), saveNotificationPreferences: (id, pref) => this.mailNotifications.save(id,pref), publicLocation: l => this.publicLocation(l), persistLocation: (location, secret) => this.saveLocation({ location, secret }), deleteLocation: async (id) => { await this.deleteLocation(id); }, persistJob: job => this.saveJob(job), deleteJob: async (id) => { await this.deleteJob(id); }, testLocation: (id, write) => this.withProvider(id, p => p.testConnection(write)), browseLocation: async (id, requestedPath, offset, limit) => { const entries = (await this.withProvider(id, p => p.list(requestedPath))).filter(x => x.type === "directory"); return { path: requestedPath, offset, limit, total: entries.length, hasMore: offset + limit < entries.length, entries: entries.slice(offset, offset + limit) }; }, startRun: (id, preview) => this.startRun(id, preview), run: id => this.runManager.get(id), runs: limit => this.runManager.history(limit), runItems: (id, offset, limit) => this.runManager.getItems(id, offset, limit), status: () => ({ version: "0.2.7", connected: true, webServer: true, activeJobs: this.runManager.activeCount, failedJobs: this.failedJobs.size, queue: this.transfers.pendingCount, locations: this.cfg.locations.length, jobs: this.cfg.jobs.length }), tls: () => this.loadTls() }, webRoot, this.cfg.web.secure, this.cfg.web.sessionTtlMinutes); try {
+    async startWebServer() { const webRoot = node_path_1.default.join(__dirname, "..", "web-dist"); this.webServer = new web_server_1.StandaloneWebServer({ config: () => this.cfg, redactError:error=>this.redactSafe(error), notificationPreferences: id => this.mailNotifications.get(id), notificationHistory: id => this.mailNotifications.history(id), testNotification: id => this.mailNotifications.testMail(id), saveNotificationPreferences: (id, pref) => this.mailNotifications.save(id,pref), publicLocation: l => this.publicLocation(l), persistLocation: (location, secret) => this.saveLocation({ location, secret }), deleteLocation: async (id) => { await this.deleteLocation(id); }, persistJob: job => this.saveJob(job), deleteJob: async (id) => { await this.deleteJob(id); }, testLocation: (id, write) => this.withProvider(id, p => p.testConnection(write)), browseLocation: async (id, requestedPath, offset, limit) => { const entries = (await this.withProvider(id, p => p.list(requestedPath))).filter(x => x.type === "directory"); return { path: requestedPath, offset, limit, total: entries.length, hasMore: offset + limit < entries.length, entries: entries.slice(offset, offset + limit) }; }, startRun: (id, preview) => this.startRun(id, preview), run: id => this.runManager.get(id), runs: limit => this.runManager.history(limit), runItems: (id, offset, limit) => this.runManager.getItems(id, offset, limit), status: () => ({ version: "0.2.7", connected: true, webServer: true, activeJobs: this.runManager.activeCount, failedJobs: this.failedJobs.size, queue: this.transfers.pendingCount, locations: this.cfg.locations.length, jobs: this.cfg.jobs.length }), tls: () => this.loadTls() }, webRoot, this.cfg.web.secure, this.cfg.web.sessionTtlMinutes); try {
         await this.webServer.start(this.cfg.web.port, this.cfg.web.bind);
         const host = this.cfg.web.bind === "0.0.0.0" ? "HOST" : this.cfg.web.bind, url = `${this.cfg.web.secure ? "https" : "http"}://${host}:${this.cfg.web.port}`;
         await Promise.all([this.setStateAsync("info.webServerRunning", true, true), this.setStateAsync("info.webServerUrl", url, true), this.syncLocalLinks(true)]);
@@ -214,11 +215,11 @@ class FileSyncAdapter extends utils.Adapter {
         this.sendTo(obj.from, obj.command, { ok: false, error: this.redactSafe(e) }, obj.callback);
     } }
     async withProvider(id, fn) { const l = this.cfg.locations.find(x => x.id === id); if (!l)
-        throw new Error("Location not found"); const p = (0, factory_1.providerFor)(l, this.secrets); await p.connect(); try {
-        return await fn(p);
+        throw new Error("Location not found"); const p = (0, factory_1.providerFor)(l, this.secrets); try {
+        await p.connect(); return await fn(p);
     }
     finally {
-        await p.disconnect();
+        await p.disconnect().catch(error=>this.log.debug(`Provider cleanup failed: ${this.redactSafe(error)}`));
     } }
     credentialInUse(id, exceptLocationId) { return this.cfg.locations.some(l => l.id !== exceptLocationId && "credentialId" in l && l.credentialId === id); }
     cloneConfig() { return structuredClone(this.cfg); }
@@ -357,9 +358,9 @@ class FileSyncAdapter extends utils.Adapter {
         }
     } }
     async updateCounters() { await this.setStateAsync("info.activeJobs", this.runManager?.activeCount ?? 0, true); await this.setStateAsync("info.failedJobs", this.failedJobs.size, true); await this.setStateAsync("info.queuedTransfers", this.transfers?.pendingCount ?? 0, true); }
-    async checkHealth() { for (const l of this.cfg.locations.filter(x => x.enabled)) {
-        await this.withProvider(l.id, p => p.testConnection()).catch(e => this.log.debug(`Health check failed for ${l.id}: ${this.redactSafe(e)}`));
-    } }
+    async checkHealth() { if(this.healthBusy||this.stopping)return;this.healthBusy=true;try{for (const l of this.cfg.locations.filter(x => x.enabled)) {
+        if(this.stopping)break;await this.withProvider(l.id, p => p.testConnection()).catch(e => this.log.debug(`Health check failed for ${l.id}: ${this.redactSafe(e)}`));
+    }}finally{this.healthBusy=false} }
     async unload(cb) { this.stopping = true; if(this.mailDigestTimer)clearInterval(this.mailDigestTimer); for (const t of this.timers.values())
         clearInterval(t); this.timers.clear(); if (this.health)
         clearInterval(this.health); this.transfers?.close(); await this.webServer?.stop().catch(e => this.log.warn(this.redactSafe(e))); await this.setStateAsync("info.webServerRunning", false, true).catch(() => undefined); await this.runManager?.shutdown(30000); await this.transfers?.waitForIdle(30000); await this.setStateAsync("info.connection", false, true).catch(() => undefined); cb(); }
