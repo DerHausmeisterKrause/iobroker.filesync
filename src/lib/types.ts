@@ -1,7 +1,7 @@
 export type LocationStatus = "online" | "offline" | "degraded" | "disabled";
 export interface LocationBase { id:string; name:string; description?:string; enabled:boolean; readOnly:boolean; timeoutMs:number; groupIds:string[]; }
 export interface LocalLocation extends LocationBase { type:"local"; basePath:string; }
-export interface SmbLocation extends LocationBase { type:"smb"; host:string; port:number; share:string; domain?:string; username:string; basePath:string; credentialId:string; }
+export interface SmbLocation extends LocationBase { type:"smb"; dialect?:"auto"|"2.0.2"|"2.1"|"3.0"|"3.0.2"|"3.1.1"; host:string; port:number; share:string; domain?:string; username:string; basePath:string; credentialId:string; }
 export interface SftpLocation extends LocationBase { type:"sftp"; host:string; port:number; username:string; auth:"password"|"privateKey"; basePath:string; hostFingerprint:string; allowInsecureHostKey:boolean; credentialId:string; }
 export type DataLocation = LocalLocation | SmbLocation | SftpLocation;
 export interface SecretRecord { password?:string; privateKey?:string; passphrase?:string; }
