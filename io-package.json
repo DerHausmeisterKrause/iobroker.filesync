@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.12",
+    "version": "0.2.13",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.13": {
+        "en": "Repeat the directory search wildcard on SMB 2.0.2",
+        "de": "SMB 2.0.2: Suchmuster bei Ordner-Folgeanfragen wiederholen"
+      },
       "0.2.12": {
         "en": "Correct SMB directory enumeration continuation requests",
         "de": "SMB-Ordnerauflistung und Folgeanfragen korrigiert"
