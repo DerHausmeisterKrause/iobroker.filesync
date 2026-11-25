@@ -24,6 +24,12 @@ test("native signed SMB: authentication, directory operations, streaming, error 
   assert.equal(digest.digest("hex"),hash(payload));
   await client.unlink(target);await assert.rejects(client.stat(target),{code:"ENOENT"});
   await pipeline(Readable.from([]),await client.createWriteStream(dir+"/empty"));assert.equal((await client.stat(dir+"/empty")).size,0);
-  await client.unlink(dir+"/empty");await client.rmdir(dir);
+  await client.unlink(dir+"/empty");
+  // Force multiple directory response pages (each name consumes > 400 bytes).
+  const names=Array.from({length:180},(_,i)=>String(i).padStart(3,"0")+"-"+"x".repeat(180));
+  for(const name of names)await client.mkdir(dir+"/"+name);
+  assert.deepEqual((await client.readdir(dir)).sort(),[...names].sort());
+  for(const name of names)await client.rmdir(dir+"/"+name);
+  assert.deepEqual(await client.readdir(dir),[]);await client.rmdir(dir);
  }finally{await client.disconnect()}
 });
