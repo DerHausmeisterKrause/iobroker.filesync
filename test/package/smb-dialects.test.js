@@ -4,14 +4,14 @@ const path=require("node:path");
 const {pathToFileURL}=require("node:url");
 const moduleUrl=pathToFileURL(path.resolve(__dirname,"../../src/lib/storage/smb-dialects.mjs")).href;
 describe("SMB dialect compatibility",()=>{
- let dialectOffer,connectCompatible;
- before(async()=>{({dialectOffer,connectCompatible}=await import(moduleUrl))});
+ let dialectOffer,connectCompatible,normalizeDirectoryRequest;
+ before(async()=>{({dialectOffer,connectCompatible,normalizeDirectoryRequest}=await import(moduleUrl))});
  function fixture(responses){
   const offers=[],sent=[],clients=[],credits=[];
   class Connection {
    credits={take:async n=>credits.push(n)};
    async open(options){offers.push(options);const value=responses.shift();if(value instanceof Error)throw value;return {dialect:value,maxReadSize:1048576,maxWriteSize:1048576,maxTransactSize:1048576}}
-   async send(command,body,options){sent.push({command,body,options});return {}}
+   async send(command,body,options){sent.push({command,body,options});return {header:{status:this.responseStatus??0}}}
   }
   class Client {
    constructor(options){this.options=options;this.conn=new Connection();clients.push(this)}
@@ -35,6 +35,29 @@ describe("SMB dialect compatibility",()=>{
   assert.equal(result.dialect,"2.0.2");assert.equal(f.offers[0].capabilities,0);assert.deepEqual(f.offers[0].ciphers,[]);assert.equal(result.client.state.maxReadSize,65536);assert.equal(result.client.state.maxWriteSize,65536);
   const signing={sign:()=>Buffer.alloc(16)};await result.client.conn.send(8,"read",{creditCharge:1,signing});
   assert.deepEqual(f.credits,[1,1]);assert.equal(f.sent[0].options.creditCharge,0);assert.equal(f.sent[1].options.creditCharge,0);assert.equal(f.sent[1].options.signing,signing);
+ });
+ function directoryBody(pattern){
+  const bytes=Buffer.from(pattern,"utf16le"),body=Buffer.alloc(32+Math.max(1,bytes.length));
+  body.writeUInt16LE(33,0);body[2]=37;body[3]=pattern?1:0;
+  body.writeUInt16LE(96,24);body.writeUInt16LE(bytes.length,26);body.writeUInt32LE(65536,28);bytes.copy(body,32);
+  return body;
+ }
+ it("corrects the empty continuation offset without changing the original or restarting the search",()=>{
+  const original=directoryBody(""),fixed=normalizeDirectoryRequest(14,original,65536);
+  assert.equal(original.readUInt16LE(24),96);assert.equal(fixed.readUInt16LE(24),0);
+  assert.equal(fixed.readUInt16LE(26),0);assert.equal(fixed[3],0);assert.equal(fixed.length,33);
+  const first=directoryBody("*");assert.equal(normalizeDirectoryRequest(14,first,65536),first);
+  const capped=normalizeDirectoryRequest(14,first,16384);assert.equal(capped.readUInt32LE(28),16384);assert.equal(capped.readUInt16LE(24),96);assert.equal(capped.subarray(32).toString("utf16le"),"*");
+  assert.equal(normalizeDirectoryRequest(8,first,16384),first);
+ });
+ it("corrects requests before the upstream signing path for every dialect and preserves errors",async()=>{
+  for(const dialect of [0x0202,0x0210,0x0300,0x0302,0x0311]){
+   const f=fixture([dialect]);const result=await connectCompatible(f.Client,f.Connection,{});const conn=result.client.conn;
+   const signing={sign:()=>Buffer.alloc(16)};await conn.send(14,directoryBody(""),{creditCharge:1,signing});
+   assert.equal(f.sent.at(-1).body.readUInt16LE(24),0);assert.equal(f.sent.at(-1).options.signing,signing);assert.equal(f.sent.at(-1).options.creditCharge,dialect===0x0202?0:1);
+   conn.responseStatus=0xc0000033;await assert.rejects(conn.send(14,directoryBody(""),{creditCharge:1}),/Fortsetzung/);await assert.rejects(conn.send(14,directoryBody("*"),{creditCharge:1}),/erste Anfrage/);
+   conn.responseStatus=0x80000006;assert.equal((await conn.send(14,directoryBody(""),{})).header.status,0x80000006);
+  }
  });
  it("retries only explicit negotiate-not-supported on a fresh connection",async()=>{
   const error=Object.assign(new Error("NEGOTIATE failed: 0xC00000BB"),{status:0xc00000bb});
