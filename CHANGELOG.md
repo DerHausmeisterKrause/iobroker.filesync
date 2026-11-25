@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.13 (2026-11-25)
+
+- Repeat the explicit UTF-16LE wildcard `*` in SMB 2.0.2 directory continuation requests, matching the Linux CIFS client behavior.
+- Preserve the directory handle, cursor flags, file index, negotiated buffer limits and signing. Modern dialects are unchanged.
+- Keep failed enumeration as an error and add regression checks for continuation requests.
+
 ## 0.2.12 (2026-11-25)
 
 - Correct QUERY_DIRECTORY FileNameOffset for empty continuation patterns before signing/encryption, per MS-SMB2 2.2.33.
