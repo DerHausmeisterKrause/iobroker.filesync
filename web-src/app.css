@@ -42,3 +42,6 @@
 .brand img,.job-brand img{flex:none;object-fit:contain;background:white;border-radius:7px}
 .job-brand{display:inline-flex;align-items:center;gap:.45rem;vertical-align:middle}
 @media(max-width:700px){.side h2.brand{display:flex;margin:0 .5rem 0 0;align-self:center;flex:none}.brand img{width:32px;height:32px}.brand span{display:none}}
+
+/* Simple SMB location editor */
+.smb-advanced{border:1px solid #ccd5df;border-radius:8px;padding:.75rem 1rem;margin:1rem 0}.smb-advanced summary{cursor:pointer;font-weight:600}.smb-advanced[open] summary{margin-bottom:.75rem}.smb-advanced .form-grid{gap:1rem}

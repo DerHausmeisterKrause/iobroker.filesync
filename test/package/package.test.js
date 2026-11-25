@@ -40,6 +40,22 @@ describe("committed runtime", () => {
             assert.ok(pkg.files.includes(file), `${file} is missing from package files`);
         }
     });
+    it("parses and round-trips SMB paths and domain usernames in the actual frontend", () => {
+        const app = fs.readFileSync(path.join(__dirname,"../../web-dist/app.js"),"utf8");
+        const helpers=app.split("// BEGIN SMB editor helpers")[1].split("// END SMB editor helpers")[0];
+        const {parseSmbPath,formatSmbPath,parseSmbUsername,formatSmbUsername}=new Function(helpers+";return {parseSmbPath,formatSmbPath,parseSmbUsername,formatSmbUsername}")();
+        for(const [raw,expected] of [
+            ["10.10.22.34\\testshare",{host:"10.10.22.34",share:"testshare",basePath:""}],
+            ["\\\\12.4.23.52\\share$\\test",{host:"12.4.23.52",share:"share$",basePath:"test"}],
+            ["//server/Daten$/Ordner mit Leerzeichen/Unterordner/",{host:"server",share:"Daten$",basePath:"Ordner mit Leerzeichen/Unterordner"}],
+            ["\\\\[::1]\\share",{host:"::1",share:"share",basePath:""}]
+        ]){assert.deepStrictEqual(parseSmbPath(raw),expected);assert.deepStrictEqual(parseSmbPath(formatSmbPath(expected)),expected)}
+        for(const raw of ["server","10.10.22.345/share","server/share/../test","server:445/share","server/share/a:b","server//share"])assert.throws(()=>parseSmbPath(raw));
+        assert.deepStrictEqual(parseSmbUsername("DOMAIN\\user"),{domain:"DOMAIN",username:"user"});
+        assert.deepStrictEqual(parseSmbUsername("user"),{domain:"",username:"user"});
+        assert.equal(formatSmbUsername({domain:"DOMAIN",username:"user"}),"DOMAIN\\user");
+        assert.throws(()=>parseSmbUsername("DOMAIN\\"));assert.throws(()=>parseSmbUsername("a\\b\\c"));
+    });
     it("keeps the backend, frontend and package versions in sync", () => {
         const ioPackage = require("../../io-package.json");
         assert.equal(ioPackage.common.version, pkg.version);
