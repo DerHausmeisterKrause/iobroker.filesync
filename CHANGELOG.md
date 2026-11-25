@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.8 (2026-11-25)
+
+- Isolate the legacy SMB client in a worker with bounded operation timeouts and crash-to-error conversion.
+- Fail closed when legacy NTLM crypto is not available; no global OpenSSL legacy mode.
+- Keep management sessions and CRUD available after storage failures, show redacted backend errors and clear stale dialogs on re-login.
+- Avoid overlapping health checks and clean up connections after failed setup.
+
 ## 0.2.7 (2026-11-24)
 
 - Put quick installation and update instructions at the top of the README.

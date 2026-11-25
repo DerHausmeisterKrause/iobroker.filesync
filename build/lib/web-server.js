@@ -91,6 +91,7 @@ class StandaloneWebServer {
     } this.failures.delete(key); this.sessions.delete(this.cookie(req)); const session = this.sessions.create(user.id); res.setHeader("Set-Cookie", `filesync_session=${session.id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor((session.expiresAt - Date.now()) / 1000)}${this.secure ? "; Secure" : ""}`); this.json(res, 200, { ok: true, data: { user: (0, web_auth_1.safeUser)(user, this.api.config().webGroups), csrfToken: session.csrf } }); }
     runVisible(user, record) { if (user.admin)
         return true; const job = this.api.config().jobs.find(x => x.id === record?.jobId); return Boolean(job && this.can(user, job.groupIds)); }
+    async operation(fn,status,code){try{return await fn()}catch(error){if(error instanceof ApiError||error instanceof zod_1.ZodError)throw error;throw new ApiError(status,code,this.api.redactError?.(error)||"Request failed")}}
     async apiRequest(req, res, url) {
         const method = req.method ?? "GET", parts = url.pathname.split("/").filter(Boolean);
         if (url.pathname === "/api/auth/login" && method === "POST") {
@@ -137,13 +138,13 @@ class StandaloneWebServer {
             if (!id && method === "POST") {
                 const b = locationBody.parse(await this.body(req));
                 this.validateGroups(p.user, b.location.groupIds);
-                return this.json(res, 201, { ok: true, data: await this.api.persistLocation(b.location, b.secret) });
+                return this.json(res, 201, { ok: true, data: await this.operation(()=>this.api.persistLocation(b.location,b.secret),409,"SAVE_FAILED") });
             }
             const existing = this.location(p.user, id);
             if (parts[3] === "test" && method === "POST")
-                return this.json(res, 200, { ok: true, data: await this.api.testLocation(id, Boolean((await this.body(req)).writeTest)) });
+                return this.json(res, 200, { ok: true, data: await this.operation(async()=>this.api.testLocation(id,Boolean((await this.body(req)).writeTest)),502,"STORAGE_ERROR") });
             if (parts[3] === "browse" && method === "GET")
-                return this.json(res, 200, { ok: true, data: await this.api.browseLocation(id, url.searchParams.get("path") ?? "", Number(url.searchParams.get("offset") ?? 0), Number(url.searchParams.get("limit") ?? 200)) });
+                return this.json(res, 200, { ok: true, data: await this.operation(()=>this.api.browseLocation(id,url.searchParams.get("path")??"",Number(url.searchParams.get("offset")??0),Number(url.searchParams.get("limit")??200)),502,"STORAGE_ERROR") });
             if (method === "GET")
                 return this.json(res, 200, { ok: true, data: this.api.publicLocation(existing) });
             if (method === "PUT") {
@@ -151,10 +152,10 @@ class StandaloneWebServer {
                 if (b.location.id !== id)
                     throw new ApiError(400, "ID_MISMATCH", "ID mismatch");
                 this.validateGroups(p.user, b.location.groupIds);
-                return this.json(res, 200, { ok: true, data: await this.api.persistLocation(b.location, b.secret) });
+                return this.json(res, 200, { ok: true, data: await this.operation(()=>this.api.persistLocation(b.location,b.secret),409,"SAVE_FAILED") });
             }
             if (method === "DELETE") {
-                await this.api.deleteLocation(id);
+                await this.operation(()=>this.api.deleteLocation(id),409,"DELETE_FAILED");
                 return this.json(res, 200, { ok: true, data: true });
             }
         }
@@ -165,7 +166,7 @@ class StandaloneWebServer {
             if (!id && method === "POST") {
                 const b = jobBody.parse(await this.body(req));
                 this.validateJobAccess(p.user, b.job);
-                return this.json(res, 201, { ok: true, data: await this.api.persistJob(b.job) });
+                return this.json(res, 201, { ok: true, data: await this.operation(()=>this.api.persistJob(b.job),409,"SAVE_FAILED") });
             }
             const existing = this.job(p.user, id);
             if (parts[3] === "preview" && method === "POST")
@@ -179,10 +180,10 @@ class StandaloneWebServer {
                 if (b.job.id !== id)
                     throw new ApiError(400, "ID_MISMATCH", "ID mismatch");
                 this.validateJobAccess(p.user, b.job);
-                return this.json(res, 200, { ok: true, data: await this.api.persistJob(b.job) });
+                return this.json(res, 200, { ok: true, data: await this.operation(()=>this.api.persistJob(b.job),409,"SAVE_FAILED") });
             }
             if (method === "DELETE") {
-                await this.api.deleteJob(id);
+                await this.operation(()=>this.api.deleteJob(id),409,"DELETE_FAILED");
                 return this.json(res, 200, { ok: true, data: true });
             }
         }

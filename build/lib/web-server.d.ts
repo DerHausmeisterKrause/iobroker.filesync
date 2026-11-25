@@ -2,6 +2,7 @@ import type { AdapterConfig, DataLocation, SecretRecord } from "./types";
 import type { Preferences } from "./notifications";
 import type {DeliveryEntry,DeliveryResult} from "./mail-journal";
 export interface WebApi {
+    redactError?(error:unknown):string;
     notificationHistory?(userId:string):DeliveryEntry[];
     testNotification?(userId:string):Promise<DeliveryResult>;
     notificationPreferences?(userId:string):Preferences;
@@ -52,6 +53,7 @@ export declare class StandaloneWebServer {
     private validateJobAccess;
     private login;
     private runVisible;
+    private operation;
     private apiRequest;
     private handle;
 }

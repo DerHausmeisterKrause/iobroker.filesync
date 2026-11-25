@@ -128,6 +128,12 @@ Der Button **Verbindung testen** prüft ab 0.2.4 den Basisordner. Bei beschreibb
 
 Seit 0.2.3 werden vorhandene Dateien ohne vorherige Stabilitätswartezeit verarbeitet, unabhängig von der alten Job-Einstellung. Dry Run bleibt schreibfrei. Änderungen während einer Übertragung werden weiterhin anhand der Dateimetadaten geprüft; Provider-Zugriffsfehler bleiben Fehler und werden nicht unterdrückt. Ein plattformübergreifender Nachweis, dass eine Datei von keinem anderen Programm geöffnet ist, ist nicht möglich.
 
+## SMB-Kompatibilität und Verbindungsfehler
+
+Seit 0.2.8 läuft der bisherige SMB-Client in einem separaten Worker. Ein asynchroner Bibliotheksfehler oder ein Timeout beendet nur den betroffenen SMB-Worker, nicht den FileSync-Adapter. Das konfigurierte Timeout gilt pro Worker-Operation. Verbindungstests und die Verwaltung liefern bereinigte Fehlermeldungen zurück.
+
+Die bisherige direkte SMB-Bibliothek `@marsaud/smb2` benötigt für ihre NTLMv1-Authentifizierung alte Kryptografie (DES und MD4). Auf Node.js/OpenSSL-Systemen ohne diese Algorithmen wird der Zugriff nun kontrolliert abgelehnt. Direkte moderne NTLMv2-/SMB3-Unterstützung ist noch nicht implementiert. Den globalen OpenSSL-Legacy-Modus nicht aktivieren und die Server-Sicherheitsrichtlinien nicht herabsetzen. Als Übergang kann eine per Linux CIFS mit modernen SMB-Einstellungen eingebundene Freigabe als lokaler Datenort verwendet werden. Vor produktiven Runs sicherstellen, dass die Freigabe tatsächlich eingehängt ist; bei einem fehlenden Mount darf insbesondere kein Mirror-/Move-Job laufen. Keine SMB-Zugangsdaten auf der Kommandozeile oder in Logs hinterlegen.
+
 ## Sicherheitsgrenzen
 
 Lokale Pfad- und Symlink-Confinement, Streaming, Filter, Retry, Transfer-Limits, Dry-Run, atomare Snapshots und Run-History werden weiterverwendet. Mirror und Move sollten zunächst ausschließlich mit Testdaten und Preview geprüft werden. Das Legacy-Message-API kann intern vorerst bestehen, ist aber keine UI-Abhängigkeit.

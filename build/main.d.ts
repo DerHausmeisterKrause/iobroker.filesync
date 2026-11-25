@@ -12,6 +12,7 @@ export declare class FileSyncAdapter extends utils.Adapter {
     private timers;
     private failedJobs;
     private health?;
+    private healthBusy;
     private stopping;
     constructor(options?: Partial<utils.AdapterOptions>);
     private ready;
