@@ -6,13 +6,25 @@ export function dialectOffer(mode="auto"){
  return [DIALECTS[mode]];
 }
 // Normalize QUERY_DIRECTORY before the upstream sender signs/encrypts the PDU.
-export function normalizeDirectoryRequest(command,body,maxTransactSize){
+export function normalizeDirectoryRequest(command,body,maxTransactSize,repeatWildcard=false){
  if(command!==0x000e)return body;
  if(!Buffer.isBuffer(body)||body.length<33||body.readUInt16LE(0)!==33)throw new Error("Malformed SMB QUERY_DIRECTORY request");
  const length=body.readUInt16LE(26),offset=body.readUInt16LE(24);
  const limit=body.readUInt32LE(28);
  const max=Number.isSafeInteger(maxTransactSize)&&maxTransactSize>0?Math.min(limit,maxTransactSize):limit;
  if(length!==0&&(offset<96||offset-64+length>body.length||length%2!==0))throw new Error("Malformed SMB directory search pattern");
+ // FileSync only uses the wildcard "*" for directory enumeration. Match Linux CIFS:
+ // legacy SMB servers may require the same explicit wildcard on every page.
+ // Do not set RESTART_SCANS/REOPEN or change the directory handle or file index.
+ if(repeatWildcard&&length===0){
+  const result=Buffer.alloc(34);
+  body.copy(result,0,0,32);
+  result.writeUInt16LE(96,24);
+  result.writeUInt16LE(2,26);
+  result.writeUInt32LE(max,28);
+  result.writeUInt16LE(0x2a,32);
+  return result;
+ }
  if((length!==0||offset===0)&&max===limit)return body;
  const result=Buffer.from(body);
  // MS-SMB2 2.2.33: when no pattern is present both offset and length MUST be zero.
@@ -37,11 +49,11 @@ export function installNegotiation(Connection,offer){
    result.maxTransactSize=Math.min(result.maxTransactSize,65536);
   }
   this.send=async function(command,body,opts={}){
-   const request=normalizeDirectoryRequest(command,body,result.maxTransactSize);
+   const request=normalizeDirectoryRequest(command,body,result.maxTransactSize,legacy);
    if(legacy&&command!==0)await this.credits.take(1);
    const response=await send.call(this,command,request,legacy?{...opts,creditCharge:0}:opts);
    if(command===0x000e&&response?.header?.status===0xc0000033){
-    const stage=request.readUInt16LE(26)===0?"Fortsetzung":"erste Anfrage";
+    const stage=body.readUInt16LE(26)===0?"Fortsetzung":"erste Anfrage";
     // Never turn a failed or incomplete enumeration into an empty directory.
     throw Object.assign(new Error("QUERY_DIRECTORY failed: STATUS_OBJECT_NAME_INVALID (0xC0000033; "+stage+")"),{status:0xc0000033,code:"EINVAL"});
    }
