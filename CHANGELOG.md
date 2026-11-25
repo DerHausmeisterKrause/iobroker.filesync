@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.10 (2026-11-25)
+
+- Simplify SMB setup to a single UNC/network path and domain-qualified username.
+- Allow share roots, hidden shares and paths with spaces; validate input before saving.
+- Keep port, timeout and description in advanced settings; preserve existing credentials and location IDs.
+- Show the full SMB network path in the locations table.
+
 ## 0.2.9 (2026-11-25)
 
 - Replace the legacy NTLMv1 dependency with native smb3-client 0.2.0 (SMB 2.1–3.1.1, NTLMv2, mandatory signing).
