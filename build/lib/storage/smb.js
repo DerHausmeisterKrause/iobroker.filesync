@@ -9,7 +9,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const node_crypto_1 = require("node:crypto");
 const path_1 = require("../security/path");
 const errors_1 = require("./errors");
-const createClient = (options) => { const SMB2 = (0, node_module_1.createRequire)(__filename)("@marsaud/smb2"); return new SMB2(options); };
+const createClient = (options) => { const SMB2 = (0, node_module_1.createRequire)(__filename)(node_path_1.default.resolve(__dirname,"../../../src/lib/storage/smb-worker.cjs")); return new SMB2(options); };
 /**
  * @marsaud/smb2's runtime stat mapper includes `size` (lib/tools/file-info.js),
  * although 0.18.0's declaration omits it. Keep that discrepancy local and
@@ -39,14 +39,14 @@ class SmbStorageProvider {
             throw new Error("SMB password unavailable");
         this.client = this.factory({ share: `\\\\${this.l.host}\\${this.l.share}`, domain: this.l.domain ?? "", username: this.l.username, password: this.secret.password, port: this.l.port, autoCloseTimeout: this.l.timeoutMs });
     }
-    async disconnect() { this.client?.disconnect(); this.client = undefined; }
+    async disconnect() { const client=this.client; this.client=undefined; await client?.disconnect(); }
     c() { if (!this.client)
         throw new Error("SMB not connected"); return this.client; }
     async testConnection() { const t = Date.now(); await this.list(""); return { latencyMs: Date.now() - t }; }
     async list(p) {
         // Without `stats: true`, 0.18 returns names, not Dirent-like objects.
         const names = await this.c().readdir(this.p(p));
-        return Promise.all(names.map(name => this.stat(node_path_1.default.posix.join(this.normalizePath(p), name))));
+        const entries=[]; for(const name of names)entries.push(await this.stat(node_path_1.default.posix.join(this.normalizePath(p),name))); return entries;
     }
     async stat(p) {
         const s = runtimeStat(await this.c().stat(this.p(p)));
