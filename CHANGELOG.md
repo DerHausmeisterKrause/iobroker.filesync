@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.12 (2026-11-25)
+
+- Correct QUERY_DIRECTORY FileNameOffset for empty continuation patterns before signing/encryption, per MS-SMB2 2.2.33.
+- Bound directory response size by negotiated MaxTransactSize and distinguish first-request vs continuation errors.
+- Preserve failed enumeration as an error; never treat it as an empty directory.
+- Add binary regression checks and multipage/empty directory Samba integration cases.
+
 ## 0.2.11 (2026-11-25)
 
 - Offer SMB 2.0.2 through SMB 3.1.1 automatically or select an exact dialect per SMB location.

@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "filesync",
-    "version": "0.2.11",
+    "version": "0.2.12",
     "titleLang": {
       "en": "FileSync",
       "de": "FileSync"
@@ -48,6 +48,10 @@
       }
     ],
     "news": {
+      "0.2.12": {
+        "en": "Correct SMB directory enumeration continuation requests",
+        "de": "SMB-Ordnerauflistung und Folgeanfragen korrigiert"
+      },
       "0.2.11": {
         "en": "SMB 2.0.2 compatibility and explicit dialect selection",
         "de": "SMB 2.0.2 und manuelle Protokollauswahl"
