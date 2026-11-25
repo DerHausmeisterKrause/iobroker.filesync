@@ -67,14 +67,23 @@ jobs:
       - run: npm run test:browser
 
   native-smb:
-    name: Native SMB3 integration (Node 22)
+    name: Native SMB ${{ matrix.dialect }} integration (Node 22)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {dialect: "2.0.2", protocol: SMB2_02, encryption: "off"}
+          - {dialect: "2.1", protocol: SMB2_10, encryption: "off"}
+          - {dialect: "3.0", protocol: SMB3_00, encryption: "required"}
+          - {dialect: "3.0.2", protocol: SMB3_02, encryption: "required"}
+          - {dialect: "3.1.1", protocol: SMB3_11, encryption: "required"}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: "22"}
       - run: npm ci
-      - name: Start disposable Samba share with NTLMv2, signing and encryption required
+      - name: Start disposable Samba share with NTLMv2 and signing required
         shell: bash
         run: |
           sudo apt-get update
@@ -88,8 +97,8 @@ jobs:
             interfaces = 127.0.0.1
             bind interfaces only = yes
             smb ports = 1445
-            server min protocol = SMB3_00
-            server max protocol = SMB3_11
+            server min protocol = ${{ matrix.protocol }}
+            server max protocol = ${{ matrix.protocol }}
             server signing = mandatory
             ntlm auth = ntlmv2-only
             map to guest = Never
@@ -97,7 +106,7 @@ jobs:
             path = /srv/filesync-test
             read only = no
             valid users = $(id -un)
-            smb encrypt = required
+            smb encrypt = ${{ matrix.encryption }}
           EOF
           printf '%s\n%s\n' 'FileSync-ci-only-2026!' 'FileSync-ci-only-2026!' | sudo smbpasswd -s -a "$(id -un)"
           sudo testparm -s
@@ -108,4 +117,4 @@ jobs:
           done
           exit 1
       - name: Exercise real SMB protocol
-        run: SMB_TEST_USER="$(id -un)" SMB_TEST_PASSWORD='FileSync-ci-only-2026!' node --test test/smb-native.integration.cjs
+        run: SMB_TEST_DIALECT="${{ matrix.dialect }}" SMB_TEST_USER="$(id -un)" SMB_TEST_PASSWORD='FileSync-ci-only-2026!' node --test test/smb-native.integration.cjs
