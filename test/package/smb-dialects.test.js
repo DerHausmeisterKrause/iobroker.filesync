@@ -26,7 +26,7 @@ describe("SMB dialect compatibility",()=>{
   assert.throws(()=>dialectOffer("1.0"));
  });
  it("uses the original modern request path on a modern server",async()=>{
-  const f=fixture([0x0311]),result=await connectCompatible(f.Client,f.Connection,{}),original=f.Connection.prototype.open;
+  const f=fixture([0x0311]),original=f.Connection.prototype.open,result=await connectCompatible(f.Client,f.Connection,{});
   assert.equal(result.dialect,"3.1.1");assert.equal(result.client.options.signing,"required");
   assert.equal(result.client.state.maxReadSize,1048576);assert.equal(f.sent[0].options.creditCharge,1);assert.equal(f.offers[0].securityMode,3);assert.equal(f.offers[0].capabilities,68);assert.equal(f.Connection.prototype.open,original);
  });
