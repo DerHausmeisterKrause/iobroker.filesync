@@ -9,12 +9,8 @@ const node_path_1 = __importDefault(require("node:path"));
 const node_crypto_1 = require("node:crypto");
 const path_1 = require("../security/path");
 const errors_1 = require("./errors");
-const createClient = (options) => { const SMB2 = (0, node_module_1.createRequire)(__filename)(node_path_1.default.resolve(__dirname,"../../../src/lib/storage/smb-worker.cjs")); return new SMB2(options); };
-/**
- * @marsaud/smb2's runtime stat mapper includes `size` (lib/tools/file-info.js),
- * although 0.18.0's declaration omits it. Keep that discrepancy local and
- * validate the value before exposing it as provider metadata.
- */
+const createClient = (options) => { const SMB3 = (0, node_module_1.createRequire)(__filename)(node_path_1.default.resolve(__dirname,"../../../src/lib/storage/smb-worker.cjs")); return new SMB3(options); };
+/** Validate the worker's file metadata before exposing it to the engine. */
 function runtimeStat(value) {
     if (!value || typeof value !== "object" || !("size" in value) || typeof value.size !== "number"
         || !("mtime" in value) || !(value.mtime instanceof Date) || !("isDirectory" in value)
@@ -37,16 +33,17 @@ class SmbStorageProvider {
     async connect() {
         if (!this.secret.password)
             throw new Error("SMB password unavailable");
-        this.client = this.factory({ share: `\\\\${this.l.host}\\${this.l.share}`, domain: this.l.domain ?? "", username: this.l.username, password: this.secret.password, port: this.l.port, autoCloseTimeout: this.l.timeoutMs });
+        this.client = this.factory({ host:this.l.host,share:this.l.share, domain: this.l.domain ?? "", username: this.l.username, password: this.secret.password, port: this.l.port, autoCloseTimeout: this.l.timeoutMs });
+        await this.client.connect?.();
     }
     async disconnect() { const client=this.client; this.client=undefined; await client?.disconnect(); }
     c() { if (!this.client)
         throw new Error("SMB not connected"); return this.client; }
     async testConnection() { const t = Date.now(); await this.list(""); return { latencyMs: Date.now() - t }; }
     async list(p) {
-        // Without `stats: true`, 0.18 returns names, not Dirent-like objects.
+        // Resolve each entry to metadata; do not accept paths from directory names.
         const names = await this.c().readdir(this.p(p));
-        const entries=[]; for(const name of names)entries.push(await this.stat(node_path_1.default.posix.join(this.normalizePath(p),name))); return entries;
+        const entries=[]; for(const name of names){if(name==="."||name==="..")continue;if(!name||/[\\/\x00:]/.test(name))throw new Error("Invalid SMB directory entry");entries.push(await this.stat(node_path_1.default.posix.join(this.normalizePath(p),name)))} return entries;
     }
     async stat(p) {
         const s = runtimeStat(await this.c().stat(this.p(p)));
