@@ -16,6 +16,7 @@ if(!isMainThread&&workerData?.fileSyncSmb===true){
  const port=parentPort,options=workerData.options,streams=new Map();
  let client,sequence=0;
  const share=options.share;
+ if(typeof share!=="string"||!share||/[\\/\x00:]/.test(share)||share==="."||share==="..")throw failure("Invalid SMB share","EINVAL");
  // All API paths are share-relative. Never pass UNC or traversal segments to the library.
  function smbPath(relative){
   if(typeof relative!=="string"||relative.includes("\0"))throw failure("Invalid SMB path","EINVAL");
@@ -50,7 +51,7 @@ if(!isMainThread&&workerData?.fileSyncSmb===true){
   if(op==="stream-close"){const entry=streams.get(args[0]);if(entry){streams.delete(args[0]);entry.stream.destroy()}return}
   const c=await getClient();
   if(op==="connect")return;
-  if(op==="stat"){const s=await c.stat(smbPath(args[0]));return {size:s.size,mtime:s.mtime,isDirectory:s.isDirectory,attributes:s.attributes}}
+  if(op==="stat"){const s=await c.stat(smbPath(args[0]));if((s.attributes&0x400)!==0)throw failure("SMB reparse point is not supported","SMB_REPARSE_POINT");return {size:s.size,mtime:s.mtime,isDirectory:s.isDirectory,attributes:s.attributes}}
   if(op==="read-open"||op==="write-open"){
    const stream=await (op==="read-open"?c.createReadStream(smbPath(args[0])):c.createWriteStream(smbPath(args[0])));
    const id=++sequence,entry={stream};stream.on("error",error=>{entry.error=error});
